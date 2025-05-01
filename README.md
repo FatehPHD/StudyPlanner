@@ -27,6 +27,7 @@ Use this guide when you clone the repo onto a new machine.
    b) Install node modules
       npm install
       npm install react-router-dom
+      npm install react-calendar
       
    c) Start the development server
       npm run dev

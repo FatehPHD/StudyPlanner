@@ -28,6 +28,7 @@ Use this guide when you clone the repo onto a new machine.
       npm install
       npm install react-router-dom
       npm install react-calendar
+      npm install @supabase/supabase-js
       
    c) Start the development server
       npm run dev

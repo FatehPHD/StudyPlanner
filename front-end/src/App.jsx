@@ -1,20 +1,15 @@
-import { useState } from 'react'
-import PlannerForm from './components/PlannerForm'
+import { Routes, Route } from 'react-router-dom'
+import Home    from './components/Home'
+import AddPage from './components/AddPage.jsx';
 
 export default function App() {
-  const [items, setItems] = useState([])
-
   return (
-    <div style={{ padding: 20 }}>
-      <h1>Study Planner</h1>
-      <PlannerForm onParsed={setItems} />
-      <ul>
-        {items.map((itm, i) => (
-          <li key={i}>
-            {itm.name}, {itm.date}, {itm.percent}
-          </li>
-        ))}
-      </ul>
-    </div>
+    <Routes>
+      {/* Home page with big “+” */}
+      <Route path="/" element={<Home />} />
+
+      {/* Add‐outline page with form + results */}
+      <Route path="/add" element={<AddPage />} />
+    </Routes>
   )
 }

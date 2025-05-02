@@ -10,11 +10,12 @@ Your job is to extract each assessment item and output exactly one line per item
 
 Name, Month DD YYYY, P%
 
-– Name: the assessment title (e.g. “Quiz 1” or “Midterm Exam”)
-– Month DD YYYY: the exact due date, spelled out (e.g. “March 06 2025”)
-– P%: the percentage weight (e.g. “7.5 %”)
+- Name: the assessment title (e.g. “Quiz 1” or “Midterm Exam”)
+- Month DD YYYY: the exact due date, spelled out (e.g. “March 06 2025”)
+- P%: the percentage weight (e.g. “7.5 %”)
 
-Don’t output any extra text, lists, or punctuation—just one line per assessment in that exact format.
+Don't output any extra text, lists, or punctuation—just one line per assessment in that exact format.
+make sure the percentages add up to 100
 """
 
 def parse_outline_with_gpt(outline_text: str) -> list[dict]:

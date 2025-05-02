@@ -1,15 +1,71 @@
 import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabaseClient'
 
 export default function Home() {
   const { user, signOut } = useAuth()
+  const [courses, setCourses] = useState([])
+
+  // Fetch this user’s courses
+  const fetchCourses = () => {
+    supabase
+      .from('courses')
+      .select('id, title, inserted_at')
+      .eq('user_id', user.id)
+      .order('inserted_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (!error) setCourses(data || [])
+      })
+  }
+
+  useEffect(fetchCourses, [user.id])
+
+  // Delete a course (cascade-deletes its events)
+  const handleDelete = async courseId => {
+    if (!window.confirm('Delete this course and all its events?')) return
+    const { error } = await supabase
+      .from('courses')
+      .delete()
+      .eq('id', courseId)
+    if (error) {
+      console.error(error)
+      alert('Failed to delete course')
+    } else {
+      fetchCourses()
+    }
+  }
 
   return (
     <div style={{ padding: 20, textAlign: 'center' }}>
       <h1>Welcome to Study Planner</h1>
       <p>Signed in as: {user.email}</p>
 
-      <div style={{ display: 'inline-block', margin: '0 10px' }}>
+      <h2>Your Courses</h2>
+      <ul style={{ listStyle: 'none', paddingLeft: 0 }}>
+        {courses.map(c => (
+          <li key={c.id} style={{ marginBottom: 8 }}>
+            <Link to={`/courses/${c.id}`} style={{ marginRight: 8 }}>
+              {c.title}
+            </Link>
+            <button
+              onClick={() => handleDelete(c.id)}
+              title="Delete course"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                color: 'tomato',
+              }}
+            >
+              🗑
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      <div style={{ marginTop: 20 }}>
         <Link to="/add">
           <button
             style={{
@@ -17,7 +73,6 @@ export default function Home() {
               width: 80,
               height: 80,
               borderRadius: '50%',
-              lineHeight: 1,
               cursor: 'pointer',
             }}
             aria-label="Add Outline"
@@ -25,10 +80,8 @@ export default function Home() {
             +
           </button>
         </Link>
-      </div>
 
-      <div style={{ display: 'inline-block', margin: '0 10px' }}>
-        <Link to="/calendar">
+        <Link to="/calendar" style={{ marginLeft: 16 }}>
           <button
             style={{
               padding: '0.5rem 1rem',

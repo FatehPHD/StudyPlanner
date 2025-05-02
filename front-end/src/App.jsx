@@ -1,9 +1,10 @@
 // src/App.jsx
 import { Routes, Route } from 'react-router-dom'
-import LoginPage     from './components/LoginPage.jsx'
-import Home          from './components/Home.jsx'
-import AddPage       from './components/AddPage.jsx'
-import CalendarPage  from './components/CalendarPage.jsx'
+import LoginPage      from './components/LoginPage.jsx'
+import Home           from './components/Home.jsx'
+import AddPage        from './components/AddPage.jsx'
+import CalendarPage   from './components/CalendarPage.jsx'
+import CoursePage     from './components/CoursePage.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 
 export default function App() {
@@ -12,7 +13,7 @@ export default function App() {
       {/* Public route */}
       <Route path="/login" element={<LoginPage />} />
 
-      {/* All other routes are protected */}
+      {/* Protected routes */}
       <Route
         path="/"
         element={
@@ -34,6 +35,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <CalendarPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/courses/:id"
+        element={
+          <ProtectedRoute>
+            <CoursePage />
           </ProtectedRoute>
         }
       />

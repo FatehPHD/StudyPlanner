@@ -1,38 +1,47 @@
-import os, re
-try:
-    import openai
-    openai.api_key = os.getenv("OPENAI_API_KEY", "")
-except ImportError:
-    openai = None
+import os
+from openai import OpenAI
 
-SYSTEM_PROMPT = """…"""
+# Initialize once, using your OPENAI_API_KEY from env
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def parse_outline_with_gpt(outline_text: str):
-    # If no key or OpenAI lib, return a mock response
-    if not openai or not openai.api_key:
-        print("⚠️  No OPENAI_API_KEY found — using mock data")
-        return [
-            {"name": "Quiz 1",         "date": "January 27 2025",  "percent": "7.5 %"},
-            {"name": "Assignment 1",   "date": "February 1 2025",  "percent": "6.67 %"},
-            {"name": "Midterm Exam",   "date": "March 6 2025",      "percent": "20 %"},
-        ]
+SCHEDULER_PROMPT = """
+You are a scheduling assistant.  A user will paste in a course outline containing assignments, quizzes, and exam dates with weightings.
+Your job is to extract each assessment item and output exactly one line per item in the form:
 
-    # Otherwise call GPT-o4-mini as before
-    resp = openai.ChatCompletion.create(
-        model="o4-mini",
-        messages=[
-            {"role": "system",  "content": SYSTEM_PROMPT},
-            {"role": "user",    "content": outline_text}
-        ]
+Name, Month DD YYYY, P%
+
+– Name: the assessment title (e.g. “Quiz 1” or “Midterm Exam”)
+– Month DD YYYY: the exact due date, spelled out (e.g. “March 06 2025”)
+– P%: the percentage weight (e.g. “7.5 %”)
+
+Don’t output any extra text, lists, or punctuation—just one line per assessment in that exact format.
+"""
+
+def parse_outline_with_gpt(outline_text: str) -> list[dict]:
+    if not outline_text.strip():
+        return []
+
+    # Build the chat messages
+    messages = [
+        {"role": "system", "content": SCHEDULER_PROMPT},
+        {"role": "user",   "content": outline_text}
+    ]
+
+    # Call GPT-4o-mini
+    resp = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=messages,
+        store=True
     )
-    lines = resp.choices[0].message.content.strip().splitlines()
-    parsed = []
+
+    raw = resp.choices[0].message.content or ""
+    lines = [l.strip() for l in raw.splitlines() if l.strip()]
+
+    items = []
     for line in lines:
-        m = re.match(r"(.+),\s*([A-Za-z]+\s+\d{1,2}\s+\d{4}),\s*([\d.]+)\s*%", line)
-        if m:
-            parsed.append({
-                "name":    m.group(1),
-                "date":    m.group(2),
-                "percent": m.group(3) + " %"
-            })
-    return parsed
+        parts = [p.strip() for p in line.split(",")]
+        # Expect exactly 3 parts: name, date, percent
+        if len(parts) == 3:
+            name, date, percent = parts
+            items.append({"name": name, "date": date, "percent": percent})
+    return items

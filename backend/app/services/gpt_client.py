@@ -15,7 +15,9 @@ Name, Month DD YYYY, P%
 - P%: the percentage weight (e.g. “7.5 %”)
 
 Don't output any extra text, lists, or punctuation—just one line per assessment in that exact format.
-make sure the percentages add up to 100
+make sure the percentages add up to 100 and if there are a certaian number of assignments grouped together make sure to divide the percentages give for each of them
+and find the dates for each of them 
+and incase any component is optional write opt with its name
 """
 
 def parse_outline_with_gpt(outline_text: str) -> list[dict]:

@@ -12,17 +12,15 @@ export default function CoursePage() {
   const [events, setEvents] = useState([])
 
   useEffect(() => {
-    // 1) Fetch course title
     supabase
       .from('courses')
-      .select('title')
+      .select('title, color')
       .eq('id', id)
       .single()
       .then(({ data, error }) => {
         if (!error) setCourse(data)
       })
 
-    // 2) Fetch its events
     supabase
       .from('events')
       .select('name, date, percent')
@@ -39,19 +37,14 @@ export default function CoursePage() {
       .from('courses')
       .delete()
       .eq('id', id)
-    if (error) {
-      console.error(error)
-      alert('Failed to delete course')
-    } else {
-      navigate('/')
-    }
+    if (!error) navigate('/')
   }
 
   if (!course) return <p>Loading course…</p>
 
   return (
     <div style={{ padding: 20 }}>
-      <h1>
+      <h1 style={{ color: course.color }}>
         {course.title}{' '}
         <button
           onClick={handleDeleteCourse}
@@ -61,8 +54,8 @@ export default function CoursePage() {
             background: 'transparent',
             border: 'none',
             cursor: 'pointer',
-            fontSize: '1.2rem',
-            color: 'tomato',
+            color: course.color,
+            fontSize: '1.2rem'
           }}
         >
           🗑

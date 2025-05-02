@@ -7,11 +7,10 @@ export default function Home() {
   const { user, signOut } = useAuth()
   const [courses, setCourses] = useState([])
 
-  // Fetch this user’s courses
   const fetchCourses = () => {
     supabase
       .from('courses')
-      .select('id, title, inserted_at')
+      .select('id, title, color, inserted_at')
       .eq('user_id', user.id)
       .order('inserted_at', { ascending: false })
       .then(({ data, error }) => {
@@ -21,19 +20,13 @@ export default function Home() {
 
   useEffect(fetchCourses, [user.id])
 
-  // Delete a course (cascade-deletes its events)
   const handleDelete = async courseId => {
     if (!window.confirm('Delete this course and all its events?')) return
     const { error } = await supabase
       .from('courses')
       .delete()
       .eq('id', courseId)
-    if (error) {
-      console.error(error)
-      alert('Failed to delete course')
-    } else {
-      fetchCourses()
-    }
+    if (!error) fetchCourses()
   }
 
   return (
@@ -42,10 +35,18 @@ export default function Home() {
       <p>Signed in as: {user.email}</p>
 
       <h2>Your Courses</h2>
-      <ul style={{ listStyle: 'none', paddingLeft: 0 }}>
+      <ul style={{ listStyle: 'none', padding: 0 }}>
         {courses.map(c => (
           <li key={c.id} style={{ marginBottom: 8 }}>
-            <Link to={`/courses/${c.id}`} style={{ marginRight: 8 }}>
+            <Link
+              to={`/courses/${c.id}`}
+              style={{
+                marginRight: 8,
+                color: c.color,
+                textDecoration: 'none',
+                fontWeight: 'bold'
+              }}
+            >
               {c.title}
             </Link>
             <button
@@ -55,8 +56,8 @@ export default function Home() {
                 background: 'transparent',
                 border: 'none',
                 cursor: 'pointer',
-                fontSize: '1rem',
-                color: 'tomato',
+                color: c.color,
+                fontSize: '1rem'
               }}
             >
               🗑
@@ -73,7 +74,7 @@ export default function Home() {
               width: 80,
               height: 80,
               borderRadius: '50%',
-              cursor: 'pointer',
+              cursor: 'pointer'
             }}
             aria-label="Add Outline"
           >
@@ -86,7 +87,7 @@ export default function Home() {
             style={{
               padding: '0.5rem 1rem',
               fontSize: '1rem',
-              cursor: 'pointer',
+              cursor: 'pointer'
             }}
           >
             Calendar
@@ -104,7 +105,7 @@ export default function Home() {
             color: 'white',
             border: 'none',
             borderRadius: 4,
-            cursor: 'pointer',
+            cursor: 'pointer'
           }}
         >
           Sign Out

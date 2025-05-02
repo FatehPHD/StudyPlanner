@@ -13,7 +13,7 @@ export default function AddPage() {
   const [items, setItems]   = useState([])
   const [saving, setSaving] = useState(false)
 
-  // Save course + events to Supabase
+  // Save course + events to Supabase, assign a random pastel color
   async function handleSubmitOutline(parsed) {
     if (!title.trim()) {
       alert('Please enter a course title')
@@ -21,11 +21,15 @@ export default function AddPage() {
     }
     setSaving(true)
 
-    // 1) Insert the course row
+    // generate a darker pastel color
+    const color = `hsl(${Math.floor(Math.random()*360)}, 70%, 60%)`
+
+
+    // 1) Insert the course row (with color)
     const { data: courseData, error: courseErr } = await supabase
       .from('courses')
-      .insert([{ user_id: user.id, title }])
-      .select('id')
+      .insert([{ user_id: user.id, title, color }])
+      .select('id, color')
 
     if (courseErr || !courseData?.length) {
       console.error(courseErr)
@@ -40,7 +44,7 @@ export default function AddPage() {
       course_id,
       user_id:  user.id,
       name:     item.name,
-      date:     item.date,    // ensure YYYY-MM-DD format
+      date:     item.date,    // ensure YYYY-MM-DD
       percent:  item.percent,
     }))
     const { error: evErr } = await supabase
@@ -70,6 +74,7 @@ export default function AddPage() {
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="e.g. MATH 271"
+            style={{ marginLeft: 8, padding: '4px 8px' }}
           />
         </label>
       </div>
@@ -83,7 +88,7 @@ export default function AddPage() {
 
       {saving && <p>Saving…</p>}
 
-      <ul>
+      <ul style={{ marginTop: 16 }}>
         {items.map((itm, i) => (
           <li key={i}>
             {itm.name}, {itm.date}, {itm.percent}

@@ -1,72 +1,94 @@
-// front-end/src/components/AddPage.jsx
-import { useState } from 'react'
+// src/components/AddPage.jsx
+import { useState }   from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabaseClient'
-import PlannerForm from './PlannerForm'
+import { useAuth }     from '../context/AuthContext.jsx'
+import { supabase }    from '../lib/supabaseClient.js'
+import toast           from 'react-hot-toast'
+import PlannerForm     from './PlannerForm.jsx'
 
 export default function AddPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
 
-  const [title, setTitle]   = useState('')
-  const [items, setItems]   = useState([])
-  const [saving, setSaving] = useState(false)
+  const [title, setTitle]             = useState('')
+  const [outlineText, setOutlineText] = useState('')
+  const [parsedItems, setParsedItems] = useState([])
+  const [previewMode, setPreviewMode] = useState(false)
+  const [saving, setSaving]           = useState(false)
 
-  // Save course + events to Supabase, assign a random pastel color
-  async function handleSubmitOutline(parsed) {
+  // After GPT parsing, switch to preview mode
+  function handleParsed(items) {
+    setParsedItems(items)
+    setPreviewMode(true)
+  }
+
+  // Update a single field in one row
+  function updateItem(idx, field, value) {
+    setParsedItems(xs =>
+      xs.map((it, i) => (i === idx ? { ...it, [field]: value } : it))
+    )
+  }
+
+  // Remove one row
+  function removeItem(idx) {
+    setParsedItems(xs => xs.filter((_, i) => i !== idx))
+  }
+
+  // Add a blank row at the end
+  function addRow() {
+    setParsedItems(xs => [
+      ...xs,
+      { name: '', date: '', percent: '' }
+    ])
+  }
+
+  // Save to Supabase
+  async function handleSave() {
     if (!title.trim()) {
-      alert('Please enter a course title')
+      toast.error('Please enter a course title')
       return
     }
     setSaving(true)
 
-    // generate a darker pastel color
-    const color = `hsl(${Math.floor(Math.random()*360)}, 70%, 60%)`
-
-
-    // 1) Insert the course row (with color)
+    // Create course
+    const color = `hsl(${Math.floor(Math.random()*360)},70%,60%)`
     const { data: courseData, error: courseErr } = await supabase
       .from('courses')
       .insert([{ user_id: user.id, title, color }])
-      .select('id, color')
-
+      .select('id')
     if (courseErr || !courseData?.length) {
-      console.error(courseErr)
-      alert('Failed to save course')
+      toast.error('Failed to save course')
       setSaving(false)
       return
     }
     const course_id = courseData[0].id
 
-    // 2) Insert all parsed events
-    const toInsert = parsed.map(item => ({
+    // Insert events with edited items
+    const toInsert = parsedItems.map(item => ({
       course_id,
-      user_id:  user.id,
-      name:     item.name,
-      date:     item.date,    // ensure YYYY-MM-DD
-      percent:  item.percent,
+      user_id: user.id,
+      name:    item.name,
+      date:    item.date,
+      percent: item.percent
     }))
     const { error: evErr } = await supabase
       .from('events')
       .insert(toInsert)
-
     setSaving(false)
     if (evErr) {
-      console.error(evErr)
-      alert('Failed to save events')
+      toast.error('Failed to save events')
       return
     }
 
-    // 3) Redirect to the new course's page
+    toast.success('Course saved!')
     navigate(`/courses/${course_id}`)
   }
 
   return (
-    <div style={{ padding: 20 }}>
+    <div className="container">
       <h1>Add Course Outline</h1>
 
-      <div style={{ marginBottom: '1rem' }}>
+      <div className="form-group">
         <label>
           Course Title:{' '}
           <input
@@ -74,27 +96,107 @@ export default function AddPage() {
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="e.g. MATH 271"
-            style={{ marginLeft: 8, padding: '4px 8px' }}
+            className="input-field"
+            disabled={saving}
           />
         </label>
       </div>
 
-      <PlannerForm
-        onParsed={parsed => {
-          setItems(parsed)
-          handleSubmitOutline(parsed)
-        }}
-      />
+      {!previewMode && (
+        <PlannerForm
+          outlineText={outlineText}
+          setOutlineText={setOutlineText}
+          disabled={saving}
+          onParsed={handleParsed}
+        />
+      )}
 
-      {saving && <p>Saving…</p>}
+      {previewMode && (
+        <>
+          <h2>Edit Parsed Items</h2>
+          <p className="edit-instructions">
+            Add, remove, or correct any Name, Date, or Percent row here. 
+            Please double-check the original outline to ensure these values 
+            are 100% accurate before saving.
+          </p>
+          <table className="parsed-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Date</th>
+                <th>Percent</th>
+                <th></th> {/* for remove button */}
+              </tr>
+            </thead>
+            <tbody>
+              {parsedItems.map((itm, i) => (
+                <tr key={i}>
+                  <td>
+                    <input
+                      type="text"
+                      value={itm.name}
+                      onChange={e => updateItem(i, 'name', e.target.value)}
+                      disabled={saving}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      value={itm.date}
+                      onChange={e => updateItem(i, 'date', e.target.value)}
+                      disabled={saving}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      value={itm.percent}
+                      onChange={e => updateItem(i, 'percent', e.target.value)}
+                      disabled={saving}
+                    />
+                  </td>
+                  <td>
+                    <button
+                      onClick={() => removeItem(i)}
+                      className="btn-row"
+                      disabled={saving}
+                    >
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
-      <ul style={{ marginTop: 16 }}>
-        {items.map((itm, i) => (
-          <li key={i}>
-            {itm.name}, {itm.date}, {itm.percent}
-          </li>
-        ))}
-      </ul>
+          <button
+            onClick={addRow}
+            className="btn-row"
+            disabled={saving}
+          >
+            + Add Row
+          </button>
+
+          <div className="actions" style={{ marginTop: '1rem' }}>
+            <button
+              onClick={handleSave}
+              className="btn-primary"
+              disabled={saving}
+            >
+              {saving ? 'Saving…' : 'Save Course'}
+            </button>
+            <button
+              onClick={() => setPreviewMode(false)}
+              className="btn-link ml-3"
+              disabled={saving}
+            >
+              Reparse Outline
+            </button>
+          </div>
+        </>
+      )}
+
+      {saving && <p className="saving-text">Saving…</p>}
     </div>
   )
 }

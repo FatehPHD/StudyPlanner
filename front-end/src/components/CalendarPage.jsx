@@ -1,8 +1,7 @@
-// src/components/CalendarPage.jsx
 import { useState, useEffect } from 'react'
-import { useAuth }        from '../context/AuthContext'
-import { supabase }       from '../lib/supabaseClient'
-import ReactCalendar      from 'react-calendar'
+import { useAuth }             from '../context/AuthContext.jsx'
+import { supabase }            from '../lib/supabaseClient.js'
+import ReactCalendar           from 'react-calendar'
 import 'react-calendar/dist/Calendar.css'
 
 export default function CalendarPage() {
@@ -25,36 +24,21 @@ export default function CalendarPage() {
       .then(({ data }) => setEvents(data || []))
   }, [user.id])
 
-  // group events by ISO date
   const eventsByDate = events.reduce((acc, e) => {
     (acc[e.date] = acc[e.date] || []).push(e)
     return acc
   }, {})
 
   return (
-    <div style={{ padding: 20 }}>
+    <div className="container">
       <h1>Calendar</h1>
-
-      {/* Larger container */}
-      <div
-        style={{
-          width: '90vw',      // fill 90% of viewport width
-          maxWidth: 1200,     // but no more than 1200px
-          margin: '0 auto',   // center
-        }}
-      >
+      <div className="calendar-container">
         <ReactCalendar
           onChange={setDate}
           value={date}
-          // enlarge the whole calendar
-          style={{
-            width: '100%',
-            fontSize: '1.2rem', // bump base font size
-            lineHeight: 1.4      // give a little more breathing room
-          }}
+          className="calendar-root"
           tileContent={({ date: d, view }) => {
             if (view !== 'month') return null
-
             const key = d.toISOString().slice(0,10)
             const evs = eventsByDate[key] || []
             if (!evs.length) return null
@@ -64,9 +48,9 @@ export default function CalendarPage() {
               .join('\n')
 
             return (
-              <div title={tooltip} style={{ marginTop: 6 }}>
+              <div title={tooltip}>
                 {evs.map(e => (
-                  <div key={e.id} style={{ fontSize: '0.8em' }}>
+                  <div key={e.id} className="tile-event">
                     <a
                       href={`/courses/${e.course_id}`}
                       style={{
@@ -83,7 +67,6 @@ export default function CalendarPage() {
           }}
         />
       </div>
-
       <p>Selected date: {date.toDateString()}</p>
     </div>
   )

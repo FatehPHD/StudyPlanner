@@ -29,6 +29,11 @@ Use this guide when you clone the repo onto a new machine.
       npm install react-router-dom
       npm install react-calendar
       npm install @supabase/supabase-js
+      npm install react-hot-toast
+      npm install @tanstack/react-query
+      npm install react-error-boundary
+      npm install chart.js react-chartjs-2
+
       
    c) Start the development server
       npm run dev

@@ -1,23 +1,63 @@
-/* ===== App.css ===== */
+/* ===== Theme Variables ===== */
+:root {
+  /* Base colors */
+  --bg: #ffffff;
+  --fg: #213547;
+  --fg-muted: #555;
+  --primary: #646cff;
+  --primary-hover: #535bf2;
+  --border: #ddd;
+  --surface: #f5f5f5;
+  --surface-hover: #fafafa;
+  --accent: tomato;
 
-/* Global Box Sizing */
+  /* Sidebar */
+  --sidebar-bg: #f5f5f5;
+  --sidebar-text: #213547;
+  --sidebar-active: var(--primary);
+}
+
+[data-theme="dark"] {
+  --bg: #242424;
+  --fg: rgba(255,255,255,0.87);
+  --fg-muted: #aaa;
+  /* Dark-mode primary accent updated to Twitter blue */
+  --primary: #1DA1F2;
+  --primary-hover: #1A91DA;
+  --border: #444;
+  --surface: #1a1a1a;
+  --surface-hover: #2a2a2a;
+  --accent: #ff704d;
+
+  --sidebar-bg: #1a1a1a;
+  --sidebar-text: rgba(255,255,255,0.87);
+  --sidebar-active: var(--primary);
+}
+
+/* Apply theme colors */
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+}
+
+/* ===== Global Box Sizing ===== */
 *, *::before, *::after {
   box-sizing: border-box;
 }
 
-/* Layout Container */
+/* ===== Layout Container ===== */
 .container {
   padding: 20px;
   margin: 0 auto;
   max-width: 1280px;
 }
 
-/* Centered Text Utility */
+/* ===== Centered Text Utility ===== */
 .center-text {
   text-align: center;
 }
 
-/* Course List */
+/* ===== Course List ===== */
 .course-list {
   list-style: none;
   padding: 0;
@@ -33,16 +73,17 @@
   margin-right: 8px;
   text-decoration: none;
   font-weight: bold;
+  color: var(--sidebar-text);
 }
 
-/* Event List */
+/* ===== Event List ===== */
 .event-list {
   list-style: none;
   padding: 0;
   margin-top: 16px;
 }
 
-/* Actions (Add / Calendar / Sign Out) */
+/* ===== Actions (Add / Calendar / Sign Out) ===== */
 .actions {
   display: flex;
   justify-content: center;
@@ -51,7 +92,7 @@
   margin: 1.5rem 0;
 }
 
-/* Base Button Styles */
+/* ===== Base Button Styles ===== */
 button {
   border-radius: 8px;
   border: 1px solid transparent;
@@ -63,45 +104,36 @@ button {
   cursor: pointer;
   transition: border-color 0.25s, background-color 0.25s;
   outline: none;
+  color: var(--fg);
 }
-
-/* Focus styles for keyboard users */
-button:focus-visible {
-  outline: 3px solid #646cff;
-  outline-offset: 2px;
-}
-a:focus-visible {
-  outline: 3px solid #646cff;
-  outline-offset: 2px;
-}
-input:focus-visible,
-textarea:focus-visible {
-  outline: 3px solid #646cff;
-  outline-offset: 2px;
-}
-
-/* Hover & Active states */
 button:hover {
-  border-color: #646cff;
+  border-color: var(--primary);
+  color: var(--primary-hover);
 }
 button:active {
   background-color: transparent;
 }
 
-/* Specific Button Variants */
+/* ===== Focus styles ===== */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
 
-/* Delete (trash icon) */
+/* ===== Specific Button Variants ===== */
 .btn-delete {
   padding: 0;
   font-size: 1rem;
   background: transparent;
   border: none;
+  color: var(--fg);
 }
 .btn-delete:hover {
   opacity: 0.7;
 }
-
-/* Add-outline (rectangular) */
 .btn-circle {
   width: 80px;
   height: 80px;
@@ -110,39 +142,37 @@ button:active {
   align-items: center;
   justify-content: center;
   border: 1px solid transparent;
+  color: var(--fg);
 }
 .btn-circle:hover,
 .btn-circle:focus-visible {
-  border-color: #646cff;
+  border-color: var(--primary);
 }
-
-/* Calendar button shape */
 .btn-primary {
   padding: 0.5rem 1rem;
   border-radius: 8px;
+  background-color: transparent;
+  color: var(--fg);
 }
-
-/* Sign out */
 .btn-signout {
   padding: 0.5rem 1rem;
-  background-color: tomato;
-  color: white;
+  background-color: var(--accent);
+  color: var(--bg);
   border: none;
 }
-
-/* Link‐style button */
 .btn-link {
   background: none;
   border: none;
-  color: #646cff;
+  color: var(--primary);
   text-decoration: none;
 }
 .btn-link:hover,
 .btn-link:focus-visible {
   text-decoration: underline;
+  color: var(--primary-hover);
 }
 
-/* Form & Inputs */
+/* ===== Form & Inputs ===== */
 .form-group {
   margin-bottom: 1rem;
 }
@@ -157,24 +187,23 @@ button:active {
   margin-bottom: 8px;
   font-size: 1rem;
 }
-
-/* Submit button inside forms */
 .btn-submit {
   padding: 0.6em 1.2em;
   font-size: 1em;
 }
 
-/* Feedback Text */
+/* ===== Feedback Text ===== */
 .saving-text {
   margin-top: 16px;
   font-style: italic;
+  color: var(--fg-muted);
 }
 .error-text {
   color: red;
   margin-top: 8px;
 }
 
-/* Login Container */
+/* ===== Login Container ===== */
 .login-container {
   padding: 20px;
   max-width: 320px;
@@ -182,10 +211,10 @@ button:active {
   text-align: center;
 }
 
-/* Calendar Component */
+/* ===== Calendar Component ===== */
 .calendar-container {
-  width: 90vw;
-  max-width: 1200px;
+  width: 100%;
+  max-width: none;
   margin: 0 auto;
 }
 .calendar-root {
@@ -196,118 +225,28 @@ button:active {
 .tile-event {
   margin-top: 6px;
 }
-.tile-event-text {
-  font-size: 0.8em;
-}
 
-/* Score Input & Summary Styles */
-.score-list-item {
-  margin-bottom: 12px;
-}
-.score-actions {
-  margin-top: 8px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.score-input {
-  width: 60px;
-}
-.score-summary {
-  margin-bottom: 12px;
-}
-
-/* New: Progress Bar Styles */
-.progress-bar-container {
-  width: 100%;
-  background-color: #e0e0e0;
-  border-radius: 8px;
-  height: 1rem;
-  margin-bottom: 12px;
-  overflow: hidden;
-}
-.progress-bar-fill {
-  height: 100%;
-  width: 0;
-  transition: width 0.5s ease-in-out;
-}
-
-/* Parsed‐Items Editing Table */
-.parsed-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 1rem;
-}
-.parsed-table th,
-.parsed-table td {
-  border: 1px solid #ddd;
-  padding: 8px;
-  text-align: left;
-}
-.parsed-table th {
-  background-color: #f5f5f5;
-}
-.parsed-table input {
-  width: 100%;
-  padding: 4px;
-  font-size: 1rem;
-  box-sizing: border-box;
-}
-
-/* New: Instruction & Add/Remove Row */
-.edit-instructions {
-  margin-bottom: 1rem;
-  font-style: italic;
-  color: #333;
-}
-.btn-row {
-  border: none;
-  background: #eee;
-  padding: 0.2em 0.5em;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9em;
-}
-.btn-row:hover {
-  background: #ddd;
-}
-
-/* Two-column Score Table */
+/* ===== Score Table ===== */
 .score-table {
-  width: 100%;
+  width: auto;
+  margin: 0 auto 1.5rem;
   border-collapse: collapse;
-  margin-top: 16px;
 }
 .score-table th,
 .score-table td {
-  border: 1px solid #ddd;
+  border: 1px solid var(--border);
   padding: 8px;
   vertical-align: top;
 }
 .score-table th {
-  background-color: #f5f5f5;
+  background-color: var(--surface);
   text-align: left;
 }
-
-/* ===== New: Table Polishing ===== */
-
-/* Zebra stripes */
-.score-table tr:nth-child(even),
-.parsed-table tr:nth-child(even) {
-  background-color: #fafafa;
+.score-table tr:nth-child(even) {
+  background-color: var(--surface-hover);
 }
-
-/* Hover highlight */
-.score-table tr:hover,
-.parsed-table tr:hover {
-  background-color: #f1f1f1;
-}
-
-/* ===== Sparkline / Chart Container ===== */
-.chart-container {
-  width: 100%;
-  max-width: 600px;
-  margin: 1.5rem auto;
+.score-table tr:hover {
+  background-color: var(--surface);
 }
 
 /* ===== Sidebar & Layout ===== */
@@ -315,43 +254,78 @@ button:active {
   display: flex;
   min-height: 100vh;
 }
-
 .sidebar {
   width: 200px;
-  background-color: #f5f5f5;
+  background-color: var(--sidebar-bg);
   padding: 1rem;
-  border-right: 1px solid #ddd;
+  border-right: 1px solid var(--border);
 }
-
 .sidebar-brand {
   margin-top: 0;
   margin-bottom: 1rem;
   font-size: 1.25rem;
-  color: #213547;
+  color: var(--sidebar-text);
 }
-
 .sidebar-list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
-
 .sidebar-list li {
   margin-bottom: 0.75rem;
 }
-
 .sidebar-link {
   text-decoration: none;
-  color: #213547;
+  color: var(--sidebar-text);
   font-weight: 500;
 }
-
 .sidebar-link.active {
   font-weight: bold;
-  color: #646cff;
+  color: var(--sidebar-active);
 }
-
 .main-content {
   flex: 1;
   padding: 2rem;
+}
+
+/* ===== Dark-Mode Calendar Overrides ===== */
+[data-theme="dark"] .react-calendar {
+  background-color: var(--surface) !important;
+  color: var(--fg) !important;
+  border: 1px solid var(--border);
+}
+[data-theme="dark"] .react-calendar__navigation {
+  background-color: var(--surface) !important;
+  color: var(--fg) !important;
+}
+[data-theme="dark"] .react-calendar__navigation button {
+  background: none;
+  border: none;
+  color: var(--fg) !important;
+}
+[data-theme="dark"] .react-calendar__month-view__weekdays {
+  background-color: var(--surface) !important;
+  color: var(--fg-muted) !important;
+  border-bottom: 1px solid var(--border);
+}
+[data-theme="dark"] .react-calendar__tile {
+  background: none !important;
+  color: var(--fg) !important;
+}
+[data-theme="dark"] .react-calendar__tile:enabled:hover,
+[data-theme="dark"] .react-calendar__tile:enabled:focus {
+  background-color: var(--surface-hover) !important;
+}
+[data-theme="dark"] .react-calendar__tile--now {
+  background-color: var(--primary) !important;
+  color: var(--bg) !important;
+}
+[data-theme="dark"] .react-calendar__tile--active {
+  background-color: var(--primary-hover) !important;
+  color: var(--bg) !important;
+}
+[data-theme="dark"] .react-calendar__tile--disabled,
+[data-theme="dark"] .react-calendar__tile--neighboringMonth {
+  color: var(--fg-muted) !important;
+  background: none !important;
 }

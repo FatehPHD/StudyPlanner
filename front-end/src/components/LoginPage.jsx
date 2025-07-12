@@ -60,5 +60,5 @@ export default function LoginPage() {
         </button>
       </p>
     </div>
-)
+  )
 }

@@ -1,4 +1,3 @@
-// src/components/PlannerForm.jsx
 import { useState } from 'react'
 import { parseOutline } from '../services/outlineApi.js'
 import toast from 'react-hot-toast'

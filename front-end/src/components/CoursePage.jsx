@@ -1,4 +1,3 @@
-// src/components/CoursePage.jsx
 import { useParams, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useMemo } from 'react'
 import { useAuth }               from '../context/AuthContext.jsx'
@@ -36,21 +35,18 @@ export default function CoursePage() {
   const [editingId, setEditingId]   = useState(null)
   const [tempScores, setTempScores] = useState({ received: '', total: '' })
   const [saving, setSaving]         = useState(false)
+  const [sortKey, setSortKey]       = useState(null)
+  const [sortAsc, setSortAsc]       = useState(true)
+  const [target, setTarget]         = useState('')
 
-  // Sorting state
-  const [sortKey, setSortKey] = useState(null)
-  const [sortAsc, setSortAsc] = useState(true)
-
-  // Fetch course & events on mount / id change
+  // Fetch course & events
   useEffect(() => {
     supabase
       .from('courses')
       .select('title, color')
       .eq('id', id)
       .single()
-      .then(({ data }) => {
-        setCourse(data)
-      })
+      .then(({ data }) => setCourse(data))
 
     fetchEvents()
   }, [id])
@@ -58,23 +54,26 @@ export default function CoursePage() {
   async function fetchEvents() {
     const { data } = await supabase
       .from('events')
-      .select(`
-        id,name,date,percent,
-        score_received,score_total
-      `)
+      .select(
+        `id,
+         name,
+         date,
+         percent,
+         score_received,
+         score_total`
+      )
       .eq('course_id', id)
       .order('date', { ascending: true })
 
     setEvents(data || [])
   }
 
-  // Compute raw earned and totalWeight
+  // ── Raw & normalized grade calculations ──────────────────────────────
   const totalEarned = useMemo(() => {
     return events.reduce((sum, e) => {
       if (e.score_received != null && e.score_total > 0) {
         const w = parseFloat(e.percent)
-        const f = e.score_received / e.score_total
-        return sum + f * w
+        return sum + (e.score_received / e.score_total) * w
       }
       return sum
     }, 0)
@@ -92,7 +91,35 @@ export default function CoursePage() {
     return totalWeight > 0 ? (totalEarned / totalWeight) * 100 : 0
   }, [totalEarned, totalWeight])
 
-  // Build data for sparkline: cumulative normalized grade after each scored event
+  // ── Forecasting: what remains & needed score ─────────────────────────
+  const W_done = useMemo(
+    () => events.reduce((sum, e) => {
+      return e.score_received != null && e.score_total > 0
+        ? sum + parseFloat(e.percent)
+        : sum
+    }, 0),
+    [events]
+  )
+
+  const achieved = useMemo(
+    () => events.reduce((sum, e) => {
+      if (e.score_received != null && e.score_total > 0) {
+        const w = parseFloat(e.percent)
+        return sum + (e.score_received / e.score_total) * w
+      }
+      return sum
+    }, 0),
+    [events]
+  )
+
+  const W_rem = Math.max(0, 100 - W_done)
+
+  const needed = useMemo(() => {
+    if (!target || W_rem <= 0) return null
+    return ((Number(target) - achieved) / W_rem) * 100
+  }, [target, achieved, W_rem])
+
+  // ── Sparkline data ────────────────────────────────────────────────────
   const sparkData = useMemo(() => {
     const labels = []
     const dataPoints = []
@@ -128,11 +155,7 @@ export default function CoursePage() {
   const sparkOptions = {
     scales: {
       x: { display: false },
-      y: {
-        min: 0,
-        max: 100,
-        ticks: { callback: v => v + '%' }
-      }
+      y: { min: 0, max: 100, ticks: { callback: v => v + '%' } }
     },
     plugins: {
       legend: { display: false },
@@ -142,7 +165,7 @@ export default function CoursePage() {
     maintainAspectRatio: false
   }
 
-  // Editing helpers (start/cancel/save/clear identical to before)…
+  // ── Edit helpers ───────────────────────────────────────────────────────
   function startEdit(e) {
     setEditingId(e.id)
     setTempScores({
@@ -183,7 +206,7 @@ export default function CoursePage() {
     toast.success('Score cleared')
   }
 
-  // Sorting
+  // ── Sorting ────────────────────────────────────────────────────────────
   const sortedEvents = useMemo(() => {
     if (!sortKey) return events
     return [...events].sort((a, b) => {
@@ -229,18 +252,20 @@ export default function CoursePage() {
         </button>
       </h1>
 
+      {/* ── Raw & Normalized Summary ──────────────────────────────────────── */}
       <h3 className="score-summary">
-        Raw Earned: {totalEarned.toFixed(2)}% of 100%
+        Overall: {totalEarned.toFixed(2)}% out of 100%
       </h3>
       <h3 className="score-summary">
-        Normalized: {normalizedGrade.toFixed(2)}% of scored {totalWeight.toFixed(2)}%
+        Sitting: {normalizedGrade.toFixed(2)}% for the {totalWeight.toFixed(2)}%
       </h3>
 
-      {/* Sparkline */}
+      {/* ── Sparkline ─────────────────────────────────────────────────────── */}
       <div className="chart-container" style={{ height: '150px' }}>
         <Line data={sparkData} options={sparkOptions} />
       </div>
 
+      {/* ── Sort Controls ─────────────────────────────────────────────────── */}
       <div className="actions">
         <button onClick={() => handleSort('date')} className="btn-link">
           Sort by Date {sortKey === 'date' ? (sortAsc ? '↑' : '↓') : ''}
@@ -250,6 +275,7 @@ export default function CoursePage() {
         </button>
       </div>
 
+      {/* ── Assessments & Deadlines Table ───────────────────────────────── */}
       <h2>Assessments &amp; Deadlines</h2>
       <table className="score-table">
         <thead>
@@ -260,14 +286,15 @@ export default function CoursePage() {
         </thead>
         <tbody>
           {sortedEvents.map(e => {
-            const pct = e.score_received != null && e.score_total > 0
-              ? ((e.score_received / e.score_total) * parseFloat(e.percent)).toFixed(2)
-              : null
+            const pct =
+              e.score_received != null && e.score_total > 0
+                ? ((e.score_received / e.score_total) * parseFloat(e.percent)).toFixed(2)
+                : null
 
             return (
               <tr key={e.id}>
                 <td>
-                  {e.name} — {e.date} — {e.percent}
+                  {e.name} — {e.date} — {e.percent}%
                 </td>
                 <td>
                   {editingId === e.id ? (
@@ -277,10 +304,7 @@ export default function CoursePage() {
                         placeholder="scored"
                         value={tempScores.received}
                         onChange={v =>
-                          setTempScores(ts => ({
-                            ...ts,
-                            received: v.target.value
-                          }))
+                          setTempScores(ts => ({ ...ts, received: v.target.value }))
                         }
                         className="score-input"
                         disabled={saving}
@@ -291,10 +315,7 @@ export default function CoursePage() {
                         placeholder="total"
                         value={tempScores.total}
                         onChange={v =>
-                          setTempScores(ts => ({
-                            ...ts,
-                            total: v.target.value
-                          }))
+                          setTempScores(ts => ({ ...ts, total: v.target.value }))
                         }
                         className="score-input ml-1"
                         disabled={saving}
@@ -338,6 +359,32 @@ export default function CoursePage() {
           })}
         </tbody>
       </table>
+
+      {/* ── Target-Grade Forecasting ─────────────────────────────────────── */}
+      <div className="form-group">
+        <label>
+          Target Final Grade (%):{' '}
+          <input
+            type="number"
+            min="0"
+            max="100"
+            value={target}
+            onChange={e => setTarget(e.target.value)}
+            className="input-field"
+          />
+        </label>
+      </div>
+      {target && (
+        <p className="score-summary">
+          You’ve completed <strong>{W_done.toFixed(1)}%</strong> of your work, with an achieved{' '}
+          <strong>{achieved.toFixed(2)}%</strong>.<br/>
+          To hit <strong>{target}%</strong>, you’ll need an average of{' '}
+          <strong>
+            {needed !== null ? needed.toFixed(2) : '—'}%
+          </strong>{' '}
+          on the remaining <strong>{W_rem.toFixed(1)}%</strong> of work.
+        </p>
+      )}
     </div>
   )
 }

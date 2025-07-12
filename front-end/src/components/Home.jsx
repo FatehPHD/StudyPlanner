@@ -1,4 +1,3 @@
-// src/components/Home.jsx
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { supabase } from '../lib/supabaseClient.js'

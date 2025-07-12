@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { useAuth }             from '../context/AuthContext.jsx'
-import { supabase }            from '../lib/supabaseClient.js'
-import ReactCalendar           from 'react-calendar'
+import { useAuth } from '../context/AuthContext.jsx'
+import { supabase } from '../lib/supabaseClient.js'
+import ReactCalendar from 'react-calendar'
 import 'react-calendar/dist/Calendar.css'
 
 export default function CalendarPage() {
@@ -12,14 +12,14 @@ export default function CalendarPage() {
   useEffect(() => {
     supabase
       .from('events')
-      .select(`
-        id,
-        name,
-        date,
-        percent,
-        course_id,
-        courses ( title, color )
-      `)
+      .select(
+        `id,
+         name,
+         date,
+         percent,
+         course_id,
+         courses ( title, color )`
+      )
       .eq('user_id', user.id)
       .then(({ data }) => setEvents(data || []))
   }, [user.id])
@@ -30,8 +30,10 @@ export default function CalendarPage() {
   }, {})
 
   return (
-    <div className="container">
-      <h1>Calendar</h1>
+    <>
+      <div className="container center-text">
+        <h1>Calendar</h1>
+      </div>
       <div className="calendar-container">
         <ReactCalendar
           onChange={setDate}
@@ -40,16 +42,12 @@ export default function CalendarPage() {
           tileContent={({ date: d, view }) => {
             if (view !== 'month') return null
             const key = d.toISOString().slice(0,10)
-            const evs = eventsByDate[key] || []
-            if (!evs.length) return null
-
-            const tooltip = evs
-              .map(e => `${e.courses.title}: ${e.name} (${e.percent.trim()})`)
-              .join('\n')
+            const dayEvents = eventsByDate[key] || []
+            if (!dayEvents.length) return null
 
             return (
-              <div title={tooltip}>
-                {evs.map(e => (
+              <div style={{ marginTop: 6 }}>
+                {dayEvents.map(e => (
                   <div key={e.id} className="tile-event">
                     <a
                       href={`/courses/${e.course_id}`}
@@ -67,7 +65,7 @@ export default function CalendarPage() {
           }}
         />
       </div>
-      <p>Selected date: {date.toDateString()}</p>
-    </div>
+      <p className="center-text">Selected date: {date.toDateString()}</p>
+    </>
   )
 }

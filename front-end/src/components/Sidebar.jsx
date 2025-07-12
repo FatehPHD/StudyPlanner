@@ -1,7 +1,24 @@
-// src/components/Sidebar.jsx
-import { NavLink } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { NavLink }             from 'react-router-dom'
 
 export default function Sidebar() {
+  // Start theme from OS or last saved
+  const [theme, setTheme] = useState(
+    () => window.localStorage.getItem('theme')
+      || (window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light')
+  )
+
+  // Apply to <html> on change
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    window.localStorage.setItem('theme', theme)
+  }, [theme])
+
+  const toggle = () =>
+    setTheme(curr => (curr === 'light' ? 'dark' : 'light'))
+
   return (
     <nav className="sidebar">
       <h2 className="sidebar-brand">Study Planner</h2>
@@ -38,6 +55,16 @@ export default function Sidebar() {
           </NavLink>
         </li>
       </ul>
+
+      {/* Theme toggle */}
+      <button
+        onClick={toggle}
+        className="btn-link"
+        style={{ marginTop: '2rem' }}
+        aria-label="Toggle light/dark theme"
+      >
+        {theme === 'light' ? '🌙 Dark Mode' : '☀️ Light Mode'}
+      </button>
     </nav>
   )
 }

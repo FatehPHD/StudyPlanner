@@ -65,3 +65,69 @@ button:hover {
     color: #747bff;
   }
 }
+/* Dark-mode overrides for react-big-calendar */
+[data-theme="dark"] {
+  /* Base calendar panel */
+  .rbc-calendar {
+    background-color: var(--surface) !important;
+    color: var(--fg) !important;
+  }
+
+  /* Toolbar (navigation & title) */
+  .rbc-toolbar {
+    background-color: var(--surface-hover) !important;
+    border-bottom: 1px solid var(--border) !important;
+    color: var(--fg) !important;
+  }
+  .rbc-toolbar button {
+    background: none !important;
+    color: var(--fg) !important;
+    border: 1px solid transparent !important;
+  }
+  .rbc-toolbar button:hover {
+    border-color: var(--primary) !important;
+    color: var(--primary-hover) !important;
+  }
+  .rbc-toolbar .rbc-btn-group button.rbc-active {
+    background-color: var(--primary) !important;
+    color: var(--bg) !important;
+  }
+
+  /* Weekday headings */
+  .rbc-month-view .rbc-row:first-child .rbc-header {
+    background-color: var(--surface-hover) !important;
+    border-bottom: 1px solid var(--border) !important;
+    color: var(--fg-muted) !important;
+  }
+
+  /* Day cells */
+  .rbc-day-bg {
+    background-color: var(--surface) !important;
+  }
+  .rbc-day-bg + .rbc-day-bg {
+    border-left: 1px solid var(--border) !important;
+  }
+
+  /* Today cell highlight */
+  .rbc-today {
+    background-color: var(--primary-hover) !important;
+    opacity: 0.2 !important;
+  }
+
+  /* Selected slot (when you drag-select) */
+  .rbc-selected {
+    background-color: var(--primary) !important;
+    opacity: 0.15 !important;
+  }
+
+  /* Event blocks */
+  .rbc-event {
+    background-color: var(--primary) !important;
+    color: var(--bg) !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  .rbc-event:hover {
+    filter: brightness(1.1) !important;
+  }
+}

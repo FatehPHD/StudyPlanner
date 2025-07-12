@@ -1,71 +1,110 @@
-import { useState, useEffect } from 'react'
+// src/components/CalendarPage.jsx
+import React, { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { supabase } from '../lib/supabaseClient.js'
-import ReactCalendar from 'react-calendar'
-import 'react-calendar/dist/Calendar.css'
+import toast from 'react-hot-toast'
+
+// BigCalendar + DnD
+import {
+  Calendar as BigCalendar,
+  dateFnsLocalizer,
+} from 'react-big-calendar'
+import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop'
+
+// date-fns imports
+import format from 'date-fns/format'
+import parse from 'date-fns/parse'
+import startOfWeek from 'date-fns/startOfWeek'
+import getDay from 'date-fns/getDay'
+import enUS from 'date-fns/locale/en-US'    // ← ES import of locale
+
+// BigCalendar CSS
+import 'react-big-calendar/lib/css/react-big-calendar.css'
+import 'react-big-calendar/lib/addons/dragAndDrop/styles.css'
+
+// set up date-fns localizer
+const locales = { 'en-US': enUS }
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 1 }),
+  getDay,
+  locales,
+})
+
+// wrap calendar for drag&drop
+const DragAndDropCalendar = withDragAndDrop(BigCalendar)
 
 export default function CalendarPage() {
   const { user } = useAuth()
-  const [date, setDate]     = useState(new Date())
   const [events, setEvents] = useState([])
 
   useEffect(() => {
-    supabase
-      .from('events')
-      .select(
-        `id,
-         name,
-         date,
-         percent,
-         course_id,
-         courses ( title, color )`
-      )
-      .eq('user_id', user.id)
-      .then(({ data }) => setEvents(data || []))
+    fetchEvents()
   }, [user.id])
 
-  const eventsByDate = events.reduce((acc, e) => {
-    (acc[e.date] = acc[e.date] || []).push(e)
-    return acc
-  }, {})
+  async function fetchEvents() {
+    const { data, error } = await supabase
+      .from('events')
+      .select(`
+        id,
+        name,
+        date,
+        course_id,
+        courses ( title, color )
+      `)
+      .eq('user_id', user.id)
+
+    if (error) {
+      toast.error('Failed to load events')
+      return
+    }
+
+    setEvents(
+      data.map(e => ({
+        id: e.id,
+        title: `${e.courses.title}: ${e.name}`,
+        start: new Date(e.date),
+        end:   new Date(e.date),
+        allDay: true,
+      }))
+    )
+  }
+
+  async function handleEventDrop({ event, start }) {
+    const newDate = start.toISOString().slice(0,10)
+    const { error } = await supabase
+      .from('events')
+      .update({ date: newDate })
+      .eq('id', event.id)
+
+    if (error) {
+      toast.error('Could not reschedule event')
+    } else {
+      toast.success('Event moved!')
+      setEvents(evts =>
+        evts.map(evt =>
+          evt.id === event.id
+            ? { ...evt, start, end: start }
+            : evt
+        )
+      )
+    }
+  }
 
   return (
-    <>
-      <div className="container center-text">
-        <h1>Calendar</h1>
-      </div>
-      <div className="calendar-container">
-        <ReactCalendar
-          onChange={setDate}
-          value={date}
-          className="calendar-root"
-          tileContent={({ date: d, view }) => {
-            if (view !== 'month') return null
-            const key = d.toISOString().slice(0,10)
-            const dayEvents = eventsByDate[key] || []
-            if (!dayEvents.length) return null
-
-            return (
-              <div style={{ marginTop: 6 }}>
-                {dayEvents.map(e => (
-                  <div key={e.id} className="tile-event">
-                    <a
-                      href={`/courses/${e.course_id}`}
-                      style={{
-                        color: e.courses.color,
-                        textDecoration: 'none'
-                      }}
-                    >
-                      {`${e.courses.title}: ${e.name}`}
-                    </a>
-                  </div>
-                ))}
-              </div>
-            )
-          }}
-        />
-      </div>
-      <p className="center-text">Selected date: {date.toDateString()}</p>
-    </>
+    <div className="container">
+      <h1>Calendar</h1>
+      <DragAndDropCalendar
+        localizer={localizer}
+        events={events}
+        startAccessor="start"
+        endAccessor="end"
+        style={{ height: 600, margin: '1rem 0' }}
+        onEventDrop={handleEventDrop}
+        draggableAccessor={() => true}
+        defaultView="month"
+      />
+    </div>
   )
 }

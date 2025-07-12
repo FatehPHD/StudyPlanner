@@ -1,7 +1,11 @@
+// src/components/Sidebar.jsx
 import { useEffect, useState } from 'react'
 import { NavLink }             from 'react-router-dom'
+import { useAuth }             from '../context/AuthContext.jsx'
 
 export default function Sidebar() {
+  const { user } = useAuth()
+
   // Start theme from OS or last saved
   const [theme, setTheme] = useState(
     () => window.localStorage.getItem('theme')
@@ -22,6 +26,20 @@ export default function Sidebar() {
   return (
     <nav className="sidebar">
       <h2 className="sidebar-brand">Study Planner</h2>
+
+      {user && (
+        <p
+          className="sidebar-email"
+          style={{
+            marginBottom: '1rem',
+            fontSize: '0.9rem',
+            color: 'var(--fg-muted)'
+          }}
+        >
+          {user.email}
+        </p>
+      )}
+
       <ul className="sidebar-list">
         <li>
           <NavLink

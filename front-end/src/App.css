@@ -329,3 +329,54 @@ textarea:focus-visible {
   color: var(--fg-muted) !important;
   background: none !important;
 }
+
+/* ===== Mobile Responsive Tweaks ===== */
+@media (max-width: 768px) {
+  /* Stack sidebar above content */
+  .app-layout {
+    flex-direction: column;
+  }
+  .sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .main-content {
+    padding: 1rem;
+  }
+
+  /* Shrink headings slightly */
+  h1 { font-size: 2em; }
+  h2 { font-size: 1.5em; }
+
+  /* Make actions buttons wrap */
+  .actions {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  /* Allow wide tables and calendars to scroll horizontally */
+  .calendar-container,
+  .reminders-widget,
+  .parsed-table,
+  .score-table {
+    overflow-x: auto;
+  }
+  .parsed-table table,
+  .score-table table {
+    min-width: 600px;
+  }
+
+  /* Tidy up form inputs */
+  .input-field,
+  .textarea-input,
+  .score-input {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Compress sidebar links */
+  .sidebar-list li {
+    margin-bottom: 0.5rem;
+  }
+}

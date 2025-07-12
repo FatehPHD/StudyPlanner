@@ -1,3 +1,4 @@
+// src/components/AddPage.jsx
 import { useState }   from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth }     from '../context/AuthContext.jsx'
@@ -140,8 +141,12 @@ export default function AddPage() {
                   </td>
                   <td>
                     <input
-                      type="text"
-                      value={itm.date}
+                      type="date"
+                      // convert any human-readable date string into ISO (YYYY-MM-DD) for the picker
+                      value={(() => {
+                        const d = new Date(itm.date)
+                        return isNaN(d) ? '' : d.toISOString().slice(0,10)
+                      })()}
                       onChange={e => updateItem(i, 'date', e.target.value)}
                       disabled={saving}
                     />

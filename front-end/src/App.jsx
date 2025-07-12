@@ -1,13 +1,15 @@
-import { Routes, Route }    from 'react-router-dom'
-import { ErrorBoundary }    from 'react-error-boundary'
+// src/App.jsx
+import { Routes, Route } from 'react-router-dom'
+import { ErrorBoundary } from 'react-error-boundary'
 
-import Layout             from './components/Layout.jsx'
-import LoginPage          from './components/LoginPage.jsx'
-import ProtectedRoute     from './components/ProtectedRoute.jsx'
-import Home               from './components/Home.jsx'
-import AddPage            from './components/AddPage.jsx'
-import CalendarPage       from './components/CalendarPage.jsx'
-import CoursePage         from './components/CoursePage.jsx'
+import Layout from './components/Layout.jsx'
+import LoginPage from './components/LoginPage.jsx'
+import ProtectedRoute from './components/ProtectedRoute.jsx'
+import Home from './components/Home.jsx'
+import AddPage from './components/AddPage.jsx'
+import CalendarPage from './components/CalendarPage.jsx'
+import CoursePage from './components/CoursePage.jsx'
+import TodosPage from './components/TodosPage.jsx'  // ← New
 
 // Enhanced fallback UI
 function ErrorFallback({ error, resetErrorBoundary }) {
@@ -19,8 +21,8 @@ function ErrorFallback({ error, resetErrorBoundary }) {
         <button className="btn-primary" onClick={resetErrorBoundary}>
           Try Again
         </button>
-        <button 
-          className="btn-link ml-4" 
+        <button
+          className="btn-link ml-4"
           onClick={() => {
             resetErrorBoundary()
             window.location.href = '/'
@@ -42,37 +44,47 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
 
           {/* All protected routes go here */}
-          <Route 
-            path="/" 
+          <Route
+            path="/"
             element={
               <ProtectedRoute>
                 <Home />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/add" 
+          <Route
+            path="/add"
             element={
               <ProtectedRoute>
                 <AddPage />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/calendar" 
+          <Route
+            path="/calendar"
             element={
               <ProtectedRoute>
                 <CalendarPage />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/courses/:id" 
+          <Route
+            path="/courses/:id"
             element={
               <ProtectedRoute>
                 <CoursePage />
               </ProtectedRoute>
-            } 
+            }
+          />
+
+          {/* New Todos page */}
+          <Route
+            path="/todos"
+            element={
+              <ProtectedRoute>
+                <TodosPage />
+              </ProtectedRoute>
+            }
           />
         </Routes>
       </Layout>

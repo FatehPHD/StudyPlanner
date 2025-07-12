@@ -1,4 +1,6 @@
-import { Link } from 'react-router-dom'
+// src/components/Home.jsx
+import React from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { supabase } from '../lib/supabaseClient.js'
 import toast from 'react-hot-toast'
@@ -8,7 +10,10 @@ import {
   useQueryClient
 } from '@tanstack/react-query'
 
-// 1) Fetch function
+import { fetchTodos, toggleTodo } from '../services/todoApi.js'
+import { fetchUpcomingEvents }    from '../services/eventApi.js'
+
+// ── Courses Fetch/Delete ──────────────────────────────────────────────────
 async function fetchCourses(userId) {
   const { data, error } = await supabase
     .from('courses')
@@ -20,7 +25,6 @@ async function fetchCourses(userId) {
   return data
 }
 
-// 2) Delete function
 async function deleteCourse(courseId) {
   const { error } = await supabase
     .from('courses')
@@ -33,20 +37,39 @@ async function deleteCourse(courseId) {
 
 export default function Home() {
   const { user, signOut } = useAuth()
+  const navigate          = useNavigate()
   const queryClient       = useQueryClient()
 
-  // useQuery with object signature
+  // ── To-Dos Query & Toggle Mutation ───────────────────────────────────
+  const { data: todos = [] } = useQuery({
+    queryKey: ['todos', user.id],
+    queryFn:  () => fetchTodos(user.id),
+    enabled:  !!user.id
+  })
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, completed }) => toggleTodo(id, completed),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['todos', user.id] })
+  })
+
+  // ── Upcoming Deadlines Query ─────────────────────────────────────────
+  const { data: upcoming = [], isFetching: loadingUpcoming } = useQuery({
+    queryKey: ['upcoming', user.id],
+    queryFn:  () => fetchUpcomingEvents(user.id, 7),
+    enabled:  !!user.id
+  })
+
+  // ── Courses Query & Delete Mutation ─────────────────────────────────
   const {
     data: courses = [],
-    isLoading,
-    isError
+    isLoading: loadingCourses,
+    isError:  errorCourses
   } = useQuery({
     queryKey: ['courses', user.id],
     queryFn:  () => fetchCourses(user.id),
     enabled:  !!user.id
   })
 
-  // useMutation with object signature
   const deleteMutation = useMutation({
     mutationFn: deleteCourse,
     onMutate: async courseId => {
@@ -70,14 +93,66 @@ export default function Home() {
     }
   })
 
-  if (isLoading) return <p>Loading courses…</p>
-  if (isError)   return <p>Failed to load your courses.</p>
+  if (loadingCourses) return <p>Loading courses…</p>
+  if (errorCourses)   return <p>Failed to load your courses.</p>
 
   return (
     <div className="container center-text">
-      <h1>Welcome to Study Planner</h1>
-      <p>Signed in as: {user.email}</p>
+      {/* ── Upcoming To-Dos Widget ─────────────────────────────────────── */}
+      <div className="reminders-widget" style={{ textAlign: 'left', margin: '2rem 0' }}>
+        <h2>Upcoming To-Dos</h2>
+        {todos.length > 0 ? (
+          todos.slice(0, 3).map(t => (
+            <div
+              key={t.id}
+              className="todo-item"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}
+            >
+              <input
+                type="checkbox"
+                checked={t.completed}
+                onChange={() =>
+                  toggleMutation.mutate({ id: t.id, completed: !t.completed })
+                }
+              />
+              <span style={{
+                textDecoration: t.completed ? 'line-through' : 'none',
+                flex: 1
+              }}>
+                {t.title}
+              </span>
+              <small>{new Date(t.due_date).toLocaleDateString()}</small>
+            </div>
+          ))
+        ) : (
+          <p>No to-dos—enjoy your day!</p>
+        )}
+        <button
+          onClick={() => navigate('/todos')}
+          className="btn-link"
+          style={{ padding: 0, marginTop: '0.5rem' }}
+        >
+          View All & Add New
+        </button>
+      </div>
 
+      {/* ── Upcoming Deadlines Widget ───────────────────────────────────── */}
+      <div className="reminders-widget" style={{ textAlign: 'left', margin: '2rem 0' }}>
+        <h2>Upcoming Deadlines</h2>
+        {loadingUpcoming ? (
+          <p>Loading deadlines…</p>
+        ) : upcoming.length > 0 ? (
+          upcoming.map(ev => (
+            <div key={ev.id} style={{ marginBottom: '0.5rem' }}>
+              <strong>{ev.name}</strong> — due {new Date(ev.date).toLocaleDateString()}
+            </div>
+          ))
+        ) : (
+          <p>No deadlines in the next week 👍</p>
+        )}
+      </div>
+
+      {/* ── Your Courses ─────────────────────────────────────────────────── */}
       <h2>Your Courses</h2>
       {courses.length > 0 ? (
         <ul className="course-list">
@@ -106,20 +181,18 @@ export default function Home() {
         <p>No courses yet — click the “+” below to add one!</p>
       )}
 
-      {/* Add & Calendar */}
-      <div className="actions">
+      {/* ── Add & Calendar Buttons ───────────────────────────────────────── */}
+      <div className="actions" style={{ marginTop: '2rem' }}>
         <Link to="/add">
-          <button className="btn-circle" aria-label="Add Outline">
-            +
-          </button>
+          <button className="btn-circle" aria-label="Add Outline">+</button>
         </Link>
         <Link to="/calendar">
           <button className="btn-primary ml-4">Calendar</button>
         </Link>
       </div>
 
-      {/* Sign Out */}
-      <div className="actions">
+      {/* ── Sign Out ─────────────────────────────────────────────────────── */}
+      <div className="actions" style={{ marginTop: '1rem' }}>
         <button onClick={signOut} className="btn-signout">
           Sign Out
         </button>

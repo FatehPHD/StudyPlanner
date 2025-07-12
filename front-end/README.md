@@ -1,12 +1,15 @@
-# React + Vite
+Great—let’s zero in on the next piece. Here are a few areas we haven’t touched yet—pick whichever you’d like to tackle next (or let me know something else on your mind):
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Date-picker inputs in the parser preview (swap those free-form date fields for <input type="date"> or a React date picker so dates are guaranteed valid).
 
-Currently, two official plugins are available:
+Mobile responsiveness—tweak your CSS/layout so the calendar, tables, and forms look great on phones.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+PDF/Word syllabus import—add file upload + text extraction so users don’t have to copy/paste manually.
 
-## Expanding the ESLint configuration
+Drag-and-drop calendar—let people drag events to reschedule deadlines.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Styling polish—tighten up margins, fonts, and colors; add animations for a more native feel.
+
+Error handling & loading states—show spinners, catch edge-cases, build out your ErrorBoundary fallback pages.
+
+Deploying backend—get Flask running on an HTTPS domain (Heroku, Vercel Serverless, Railway, etc.) and update your front-end fetch URLs.

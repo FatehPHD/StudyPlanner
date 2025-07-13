@@ -15,8 +15,9 @@ export async function addTodo(userId, { title, due_date }) {
   const { data, error } = await supabase
     .from('todos')
     .insert([{ user_id: userId, title, due_date }])
+    .single()
   if (error) throw error
-  return data[0]
+  return data
 }
 
 export async function toggleTodo(id, completed) {
@@ -24,8 +25,9 @@ export async function toggleTodo(id, completed) {
     .from('todos')
     .update({ completed })
     .eq('id', id)
+    .single()
   if (error) throw error
-  return data[0]
+  return data
 }
 
 export async function deleteTodo(id) {

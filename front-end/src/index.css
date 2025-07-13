@@ -1,5 +1,43 @@
+/*index.css*/
+
+
+/* ===== Design Tokens ===== */
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  /* Color palette */
+  --bg: #ffffff;
+  --fg: #213547;
+  --fg-muted: #555;
+  --primary: #646cff;
+  --primary-hover: #535bf2;
+  --border: #ddd;
+  --surface: #f5f5f5;
+  --surface-hover: #fafafa;
+  --accent: tomato;
+
+  /* Spacing scale */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+
+  /* Typography */
+  --font-sans: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+
+  /* Radii & shadows */
+  --radius: 0.5rem;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+
+  /* Motion */
+  --transition-speed: 0.2s;
+
+  /* System defaults */
+  font-family: var(--font-sans);
   line-height: 1.5;
   font-weight: 400;
   color-scheme: light dark;
@@ -8,12 +46,13 @@
   text-rendering: optimizeLegibility;
 }
 
+/* ===== Global Styles ===== */
 body {
   margin: 0;
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 2rem 0;
+  padding: var(--space-lg) 0;
   min-width: 320px;
   min-height: 100vh;
 }
@@ -26,36 +65,123 @@ body {
 
 a {
   font-weight: 500;
-  color: #646cff;
+  color: var(--primary);
   text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+  transition: color var(--transition-speed), background-color var(--transition-speed);
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+/* ===== Button, Input & Textarea Defaults ===== */
+button,
+.input-field,
+.textarea-input {
+  border-radius: var(--radius);
+  transition:
+    background-color var(--transition-speed),
+    color var(--transition-speed),
+    border-color var(--transition-speed);
 }
 
+/* Base button */
 button {
-  border-radius: 8px;
   border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-base);
   font-weight: 500;
-  font-family: inherit;
   background-color: transparent;
   cursor: pointer;
-  transition: border-color 0.25s, background-color 0.25s;
   outline: none;
   box-shadow: none;
-  -webkit-tap-highlight-color: transparent;
-}
-button:hover {
-  border-color: #646cff;
 }
 
+/* Regular button hover (applies to btn-primary, etc.) */
+button:hover {
+  background-color: var(--primary);
+  color: var(--bg);
+}
+
+/* ===== Link‐style button ===== */
+.btn-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--primary);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* Hover for link‐style button (“View All & Add New”) */
+.btn-link:hover {
+  background-color: var(--primary) !important;
+  color: var(--bg) !important;
+  text-decoration: none;
+}
+
+/* ===== Circle “+” Button ===== */
+.btn-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  color: var(--fg);
+  background-color: transparent;
+}
+
+/* Hover for circle button */
+.btn-circle:hover {
+  background-color: var(--primary-hover);
+  color: var(--bg);
+}
+
+/* ===== Sign Out Button ===== */
+.btn-signout {
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--accent);
+  color: var(--bg);
+  border: none;
+}
+
+/* Hover for Sign Out */
+.btn-signout:hover {
+  /* keep the accent bg, just make text white */
+  background-color: var(--accent);
+  color: var(--bg);
+}
+
+/* ===== Inputs & Textareas ===== */
+.input-field,
+.textarea-input {
+  border: 1px solid var(--border);
+  padding: var(--space-sm);
+  font-size: var(--font-size-base);
+}
+
+.input-field:focus,
+.textarea-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(100, 110, 255, 0.2);
+  outline: none;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 600px) {
+  .container {
+    padding: var(--space-md);
+  }
+  .input-field {
+    width: 100% !important;
+    margin-bottom: var(--space-sm);
+  }
+  .parsed-table,
+  .score-table {
+    display: block;
+    overflow-x: auto;
+  }
+}
+
+/* ===== Light-mode Overrides ===== */
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;
@@ -65,69 +191,211 @@ button:hover {
     color: #747bff;
   }
 }
-/* Dark-mode overrides for react-big-calendar */
-[data-theme="dark"] {
-  /* Base calendar panel */
-  .rbc-calendar {
-    background-color: var(--surface) !important;
-    color: var(--fg) !important;
-  }
 
-  /* Toolbar (navigation & title) */
+/* ===== Dark-mode Overrides ===== */
+[data-theme="dark"] {
+  /* ensure all button hovers still use primary & white text */
+  button:hover {
+    background-color: var(--primary) !important;
+    color: var(--bg) !important;
+  }
+  .btn-link:hover {
+    background-color: var(--primary) !important;
+    color: var(--bg) !important;
+  }
+  .btn-circle:hover {
+    background-color: var(--primary-hover) !important;
+    color: var(--bg) !important;
+  }
+  .btn-signout:hover {
+    background-color: var(--accent) !important;
+    color: var(--bg) !important;
+  }
+}
+
+/* ===== Dark-mode Overrides for react-big-calendar ===== */
+[data-theme="dark"] {
+  .rbc-calendar {
+    background-color: var(--surface);
+    color: var(--fg);
+  }
   .rbc-toolbar {
-    background-color: var(--surface-hover) !important;
-    border-bottom: 1px solid var(--border) !important;
-    color: var(--fg) !important;
+    background-color: var(--surface-hover);
+    border-bottom: 1px solid var(--border);
+    color: var(--fg);
   }
   .rbc-toolbar button {
-    background: none !important;
-    color: var(--fg) !important;
-    border: 1px solid transparent !important;
+    background: none;
+    color: var(--fg);
+    border: 1px solid transparent;
   }
   .rbc-toolbar button:hover {
-    border-color: var(--primary) !important;
-    color: var(--primary-hover) !important;
+    border-color: var(--primary);
+    color: var(--bg);
   }
   .rbc-toolbar .rbc-btn-group button.rbc-active {
-    background-color: var(--primary) !important;
-    color: var(--bg) !important;
+    background-color: var(--primary);
+    color: var(--bg);
   }
-
-  /* Weekday headings */
   .rbc-month-view .rbc-row:first-child .rbc-header {
-    background-color: var(--surface-hover) !important;
-    border-bottom: 1px solid var(--border) !important;
-    color: var(--fg-muted) !important;
+    background-color: var(--surface-hover);
+    border-bottom: 1px solid var(--border);
+    color: var(--fg-muted);
   }
-
-  /* Day cells */
   .rbc-day-bg {
-    background-color: var(--surface) !important;
+    background-color: var(--surface);
   }
   .rbc-day-bg + .rbc-day-bg {
-    border-left: 1px solid var(--border) !important;
+    border-left: 1px solid var(--border);
   }
-
-  /* Today cell highlight */
   .rbc-today {
-    background-color: var(--primary-hover) !important;
-    opacity: 0.2 !important;
+    background-color: var(--primary-hover);
+    opacity: 0.2;
   }
-
-  /* Selected slot (when you drag-select) */
   .rbc-selected {
-    background-color: var(--primary) !important;
-    opacity: 0.15 !important;
+    background-color: var(--primary);
+    opacity: 0.15;
   }
-
-  /* Event blocks */
   .rbc-event {
-    background-color: var(--primary) !important;
-    color: var(--bg) !important;
-    border: none !important;
-    box-shadow: none !important;
+    background-color: var(--primary);
+    color: var(--bg);
+    border: none;
+    box-shadow: none;
   }
   .rbc-event:hover {
-    filter: brightness(1.1) !important;
+    filter: brightness(1.1);
   }
+}
+/* ─── Card styles for To-Dos & Courses ────────────────────────── */
+
+/* Todo cards */
+.todo-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  background-color: var(--bg);
+  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius);
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+.todo-card-body {
+  display: flex;
+  justify-content: space-between;
+  flex: 1;
+}
+.todo-card .completed {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+/* Course cards */
+.course-list {
+  padding: 0;
+  margin: 0;
+}
+.course-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--bg) !important;
+  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius);
+  border-left: 4px solid currentColor;
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+/* Hover lift */
+.todo-card:hover,
+.course-card:hover {
+  box-shadow: var(--shadow-md);
+}
+/* To-Do Cards */
+.todo-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+.todo-card-body {
+  flex: 1;
+  text-align: left;
+}
+.todo-card-body .completed {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+/* Course Cards */
+.course-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  justify-content: center;
+}
+.course-card {
+  flex: 1 1 200px;
+  max-width: 240px;
+  padding: var(--space-md);
+  border: 2px solid;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.course-link {
+  font-weight: bold;
+  text-decoration: none;
+}
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 200px;
+  background-color: var(--sidebar-bg);
+  padding: var(--space-md);
+  border-right: 1px solid var(--border);
+}
+
+.main-content {
+  flex: 1;
+  padding: var(--space-lg);
+}
+/* Ensure the toolbar isn’t clipped by an overflow on .main-content */
+.main-content {
+  flex: 1;
+  padding: var(--space-lg);
+  overflow: visible;      /* ← add this */
+}
+
+/* Give the BigCalendar toolbar a higher stacking context */
+.rbc-toolbar {
+  position: relative;     /* ← add */
+  z-index: 1;             /* ← add */
+}
+/* Allow the toolbar to sit on top and receive clicks */
+.main-content,
+.container {
+  overflow: visible !important;
+}
+
+.rbc-calendar,
+.rbc-toolbar {
+  position: relative !important;
+  z-index:    1000   !important;
+}
+
+.rbc-toolbar button {
+  pointer-events: auto !important;
 }

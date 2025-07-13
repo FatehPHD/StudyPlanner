@@ -4,24 +4,23 @@ import { NavLink }             from 'react-router-dom'
 import { useAuth }             from '../context/AuthContext.jsx'
 
 export default function Sidebar() {
-  const { user } = useAuth()
+  // pull both user and signOut
+  const { user, signOut } = useAuth()
 
-  // Start theme from OS or last saved
+  // theme state (light or dark)
   const [theme, setTheme] = useState(
-    () => window.localStorage.getItem('theme')
-      || (window.matchMedia('(prefers-color-scheme: dark)').matches
-          ? 'dark'
-          : 'light')
+    () =>
+      window.localStorage.getItem('theme') ||
+      (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
   )
 
-  // Apply to <html> on change
+  // apply theme to <html> and persist
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
     window.localStorage.setItem('theme', theme)
   }, [theme])
 
-  const toggle = () =>
-    setTheme(curr => (curr === 'light' ? 'dark' : 'light'))
+  const toggleTheme = () => setTheme(t => (t === 'light' ? 'dark' : 'light'))
 
   return (
     <nav className="sidebar">
@@ -42,33 +41,17 @@ export default function Sidebar() {
 
       <ul className="sidebar-list">
         <li>
-          <NavLink
-            to="/"
-            end
-            className={({ isActive }) =>
-              isActive ? 'sidebar-link active' : 'sidebar-link'
-            }
-          >
+          <NavLink to="/" end className={({ isActive }) => isActive ? 'sidebar-link active' : 'sidebar-link'}>
             Home
           </NavLink>
         </li>
         <li>
-          <NavLink
-            to="/add"
-            className={({ isActive }) =>
-              isActive ? 'sidebar-link active' : 'sidebar-link'
-            }
-          >
+          <NavLink to="/add" className={({ isActive }) => isActive ? 'sidebar-link active' : 'sidebar-link'}>
             Add Course
           </NavLink>
         </li>
         <li>
-          <NavLink
-            to="/calendar"
-            className={({ isActive }) =>
-              isActive ? 'sidebar-link active' : 'sidebar-link'
-            }
-          >
+          <NavLink to="/calendar" className={({ isActive }) => isActive ? 'sidebar-link active' : 'sidebar-link'}>
             Calendar
           </NavLink>
         </li>
@@ -76,13 +59,28 @@ export default function Sidebar() {
 
       {/* Theme toggle */}
       <button
-        onClick={toggle}
+        onClick={toggleTheme}
         className="btn-link"
         style={{ marginTop: '2rem' }}
         aria-label="Toggle light/dark theme"
       >
         {theme === 'light' ? '🌙 Dark Mode' : '☀️ Light Mode'}
       </button>
+
+      {/* Sign Out */}
+      {user && (
+        <button
+          onClick={signOut}
+          className="btn-signout"
+          style={{
+            marginTop: '1.5rem',
+            width: '100%',
+            textAlign: 'center'
+          }}
+        >
+          Sign Out
+        </button>
+      )}
     </nav>
   )
 }

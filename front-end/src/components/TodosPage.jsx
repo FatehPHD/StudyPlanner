@@ -1,11 +1,7 @@
 // src/components/TodosPage.jsx
 import React, { useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
-import {
-  useQuery,
-  useMutation,
-  useQueryClient
-} from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
   fetchTodos,
@@ -18,14 +14,14 @@ export default function TodosPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
 
-  // ── Load all to-dos using the v5 “object” signature ────────────────
+  // Load all to-dos
   const { data: todos = [], isLoading } = useQuery({
     queryKey: ['todos', user.id],
     queryFn: () => fetchTodos(user.id),
     enabled: !!user.id
   })
 
-  // ── Mutations (already object-based) ─────────────────────────────
+  // Add
   const addMutation = useMutation({
     mutationFn: obj => addTodo(user.id, obj),
     onSuccess: () => {
@@ -33,10 +29,14 @@ export default function TodosPage() {
       qc.invalidateQueries({ queryKey: ['todos', user.id] })
     }
   })
+
+  // Toggle
   const toggleMutation = useMutation({
     mutationFn: ({ id, completed }) => toggleTodo(id, completed),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['todos', user.id] })
   })
+
+  // Delete
   const deleteMutation = useMutation({
     mutationFn: id => deleteTodo(id),
     onSuccess: () => {
@@ -65,8 +65,12 @@ export default function TodosPage() {
     <div className="container">
       <h1>All To-Dos</h1>
 
-      {/* Add form */}
-      <form onSubmit={handleAdd} className="form-group" style={{ marginBottom: '1.5rem' }}>
+      {/* Add Form */}
+      <form
+        onSubmit={handleAdd}
+        className="form-group"
+        style={{ marginBottom: '1.5rem' }}
+      >
         <input
           type="text"
           placeholder="New to-do title"
@@ -81,12 +85,16 @@ export default function TodosPage() {
           onChange={e => setDueDate(e.target.value)}
           className="input-field ml-2"
         />
-        <button type="submit" className="btn-primary ml-2">
+        <button
+          type="submit"
+          className="btn-primary ml-2"
+          disabled={addMutation.isLoading}
+        >
           {addMutation.isLoading ? 'Adding…' : 'Add To-Do'}
         </button>
       </form>
 
-      {/* To-Do list */}
+      {/* To-Do List */}
       <ul className="event-list" style={{ listStyle: 'none', padding: 0 }}>
         {todos.map(t => (
           <li
@@ -106,10 +114,12 @@ export default function TodosPage() {
                 toggleMutation.mutate({ id: t.id, completed: !t.completed })
               }
             />
-            <span style={{
-              flex: 1,
-              textDecoration: t.completed ? 'line-through' : 'none'
-            }}>
+            <span
+              style={{
+                flex: 1,
+                textDecoration: t.completed ? 'line-through' : 'none'
+              }}
+            >
               {t.title} — {new Date(t.due_date).toLocaleDateString()}
             </span>
             <button

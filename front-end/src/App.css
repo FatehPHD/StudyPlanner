@@ -1,3 +1,5 @@
+/* ===== App.css ===== */
+
 /* ===== Theme Variables ===== */
 :root {
   /* Base colors */
@@ -250,6 +252,12 @@ textarea:focus-visible {
 }
 
 /* ===== Sidebar & Layout ===== */
+/* make sure calendar toolbar & buttons are never clipped/covered */
+
+.main-content {
+  overflow: visible;
+}
+
 .app-layout {
   display: flex;
   min-height: 100vh;
@@ -379,4 +387,108 @@ textarea:focus-visible {
   .sidebar-list li {
     margin-bottom: 0.5rem;
   }
+}
+
+/* ── at the very bottom of your CSS ── */
+
+/* Ensure the toolbar isn’t clipped by an overflow on .main-content */
+.main-content {
+  flex: 1;
+  padding: var(--space-lg);
+  overflow: visible;      /* ← add this */
+}
+
+/* Give the BigCalendar toolbar a higher stacking context */
+.rbc-toolbar {
+  position: relative;     /* ← add */
+  z-index: 1;             /* ← add */
+}
+
+/* ── at the very bottom of your CSS ── */
+
+/* ── make sure nothing is intercepting toolbar clicks ── */
+.main-content,
+.container {
+  overflow: visible;    /* allow the toolbar to escape any clipping */
+}
+
+.rbc-toolbar {
+  position: relative;   /* establish a new stacking context */
+  z-index: 1000;        /* sit on top of everything else */
+}
+
+.rbc-toolbar button {
+  pointer-events: auto; /* ensure clicks land on the buttons */
+}
+/* ── make sure nothing is intercepting toolbar clicks ── */
+.main-content,
+.container {
+  overflow: visible;    /* allow the toolbar to escape any clipping */
+}
+
+.rbc-toolbar {
+  position: relative;   /* establish a new stacking context */
+  z-index: 1000;        /* sit on top of everything else */
+}
+
+.rbc-toolbar button {
+  pointer-events: auto; /* ensure clicks land on the buttons */
+}
+/* Allow the toolbar to sit on top and receive clicks */
+.main-content,
+.container {
+  overflow: visible !important;
+}
+
+.rbc-calendar,
+.rbc-toolbar {
+  position: relative !important;
+  z-index:    1000   !important;
+}
+
+.rbc-toolbar button {
+  pointer-events: auto !important;
+}
+.course-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  justify-content: center;
+}
+
+.course-card {
+  display: flex;
+  border: 2px solid;
+  border-radius: var(--radius);
+  overflow: hidden;             /* clip the two buttons into one card */
+  min-width: 200px;
+  max-width: 240px;
+}
+
+.course-card-link {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: var(--space-md);
+  text-align: left;
+  font-weight: bold;
+  font-size: var(--font-size-base);
+  cursor: pointer;
+}
+
+.course-card-delete {
+  width: 3rem;
+  background: transparent;
+  border: none;
+  border-left: 1px solid var(--border);
+  padding: 0 var(--space-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.course-card-delete:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

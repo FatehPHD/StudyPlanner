@@ -1,14 +1,10 @@
 // src/components/Home.jsx
-import React from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext.jsx'
-import { supabase } from '../lib/supabaseClient.js'
-import toast from 'react-hot-toast'
-import {
-  useQuery,
-  useMutation,
-  useQueryClient
-} from '@tanstack/react-query'
+import React, { useState } from 'react'
+import { useNavigate, Link }    from 'react-router-dom'
+import { useAuth }              from '../context/AuthContext.jsx'
+import { supabase }             from '../lib/supabaseClient.js'
+import toast                    from 'react-hot-toast'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { fetchTodos, toggleTodo } from '../services/todoApi.js'
 import { fetchUpcomingEvents }    from '../services/eventApi.js'
@@ -20,94 +16,88 @@ async function fetchCourses(userId) {
     .select('id, title, color, inserted_at')
     .eq('user_id', userId)
     .order('inserted_at', { ascending: false })
-
   if (error) throw error
   return data
 }
-
 async function deleteCourse(courseId) {
   const { error } = await supabase
     .from('courses')
     .delete()
     .eq('id', courseId)
-
   if (error) throw error
   return courseId
 }
 
 export default function Home() {
-  const { user, signOut } = useAuth()
-  const navigate          = useNavigate()
-  const queryClient       = useQueryClient()
+  const { user }        = useAuth()
+  const navigate        = useNavigate()
+  const qc              = useQueryClient()
 
-  // ── To-Dos Query & Toggle Mutation ───────────────────────────────────
+  // track hover states
+  const [hoverCourse, setHoverCourse] = useState(null)
+  const [hoverDelete, setHoverDelete] = useState(null)
+
+  // ── To-Dos ────────────────────────────────────────────────────
   const { data: todos = [] } = useQuery({
     queryKey: ['todos', user.id],
     queryFn:  () => fetchTodos(user.id),
     enabled:  !!user.id
   })
-
   const toggleMutation = useMutation({
     mutationFn: ({ id, completed }) => toggleTodo(id, completed),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['todos', user.id] })
+    onSuccess: () => qc.invalidateQueries(['todos', user.id])
   })
 
-  // ── Upcoming Deadlines Query ─────────────────────────────────────────
-  const { data: upcoming = [], isFetching: loadingUpcoming } = useQuery({
+  // ── Upcoming Deadlines ───────────────────────────────────────
+  const {
+    data: upcoming = [],
+    isFetching: loadingUpcoming
+  } = useQuery({
     queryKey: ['upcoming', user.id],
     queryFn:  () => fetchUpcomingEvents(user.id, 7),
     enabled:  !!user.id
   })
 
-  // ── Courses Query & Delete Mutation ─────────────────────────────────
+  // ── Courses ─────────────────────────────────────────────────
   const {
-    data: courses = [],
-    isLoading: loadingCourses,
-    isError:  errorCourses
+    data: courses       = [],
+    isLoading: loadingC,
+    isError:   errorC
   } = useQuery({
     queryKey: ['courses', user.id],
     queryFn:  () => fetchCourses(user.id),
     enabled:  !!user.id
   })
-
   const deleteMutation = useMutation({
     mutationFn: deleteCourse,
     onMutate: async courseId => {
-      await queryClient.cancelQueries({ queryKey: ['courses', user.id] })
-      const previous = queryClient.getQueryData(['courses', user.id])
-      queryClient.setQueryData(
+      await qc.cancelQueries(['courses', user.id])
+      const prev = qc.getQueryData(['courses', user.id])
+      qc.setQueryData(
         ['courses', user.id],
         old => old.filter(c => c.id !== courseId)
       )
-      return { previous }
+      return { prev }
     },
-    onError: (_err, _vars, context) => {
-      queryClient.setQueryData(['courses', user.id], context.previous)
+    onError: (_err, _vars, ctx) => {
+      qc.setQueryData(['courses', user.id], ctx.prev)
       toast.error('Failed to delete course')
     },
-    onSuccess: () => {
-      toast.success('Course deleted')
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['courses', user.id] })
-    }
+    onSuccess: () => toast.success('Course deleted'),
+    onSettled: () => qc.invalidateQueries(['courses', user.id])
   })
 
-  if (loadingCourses) return <p>Loading courses…</p>
-  if (errorCourses)   return <p>Failed to load your courses.</p>
+  if (loadingC) return <p>Loading courses…</p>
+  if (errorC)   return <p>Failed to load your courses.</p>
 
   return (
     <div className="container center-text">
-      {/* ── Upcoming To-Dos Widget ─────────────────────────────────────── */}
+      {/* ── Upcoming To-Dos ─────────────────────────────────────── */}
       <div className="reminders-widget" style={{ textAlign: 'left', margin: '2rem 0' }}>
         <h2>Upcoming To-Dos</h2>
         {todos.length > 0 ? (
-          todos.slice(0, 3).map(t => (
-            <div
-              key={t.id}
-              className="todo-item"
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}
-            >
+          todos.slice(0,3).map(t => (
+            <div key={t.id} className="todo-card">
               <input
                 type="checkbox"
                 checked={t.completed}
@@ -115,13 +105,12 @@ export default function Home() {
                   toggleMutation.mutate({ id: t.id, completed: !t.completed })
                 }
               />
-              <span style={{
-                textDecoration: t.completed ? 'line-through' : 'none',
-                flex: 1
-              }}>
-                {t.title}
-              </span>
-              <small>{new Date(t.due_date).toLocaleDateString()}</small>
+              <div className="todo-card-body">
+                <span className={t.completed ? 'completed' : ''}>
+                  {t.title}
+                </span>
+                <small>{new Date(t.due_date).toLocaleDateString()}</small>
+              </div>
             </div>
           ))
         ) : (
@@ -132,19 +121,36 @@ export default function Home() {
           className="btn-link"
           style={{ padding: 0, marginTop: '0.5rem' }}
         >
-          View All & Add New
+          View All &amp; Add New
         </button>
       </div>
 
-      {/* ── Upcoming Deadlines Widget ───────────────────────────────────── */}
+      {/* ── Upcoming Deadlines ─────────────────────────────────── */}
       <div className="reminders-widget" style={{ textAlign: 'left', margin: '2rem 0' }}>
         <h2>Upcoming Deadlines</h2>
         {loadingUpcoming ? (
           <p>Loading deadlines…</p>
         ) : upcoming.length > 0 ? (
           upcoming.map(ev => (
-            <div key={ev.id} style={{ marginBottom: '0.5rem' }}>
-              <strong>{ev.name}</strong> — due {new Date(ev.date).toLocaleDateString()}
+            <div
+              key={ev.id}
+              style={{
+                display:        'flex',
+                justifyContent: 'space-between',
+                alignItems:     'center',
+                padding:        '0.75rem 1rem',
+                marginBottom:   '0.75rem',
+                background:     'var(--surface)',
+                borderLeft:     `4px solid ${ev.courses.color}`
+              }}
+            >
+              <div>
+                <strong style={{ color: ev.courses.color }}>
+                  {ev.courses.title}:
+                </strong>{' '}
+                {ev.name}
+              </div>
+              <small>{new Date(ev.date).toLocaleDateString()}</small>
             </div>
           ))
         ) : (
@@ -152,51 +158,72 @@ export default function Home() {
         )}
       </div>
 
-      {/* ── Your Courses ─────────────────────────────────────────────────── */}
+      {/* ── Your Courses ───────────────────────────────────────── */}
       <h2>Your Courses</h2>
       {courses.length > 0 ? (
-        <ul className="course-list">
-          {courses.map(c => (
-            <li key={c.id} className="course-item">
-              <Link
-                to={`/courses/${c.id}`}
-                className="course-link"
-                style={{ color: c.color }}
+        <div className="course-list">
+          {courses.map(c => {
+            const lightBg = `${c.color}20`  // ~12% opacity
+            return (
+              <div
+                key={c.id}
+                style={{
+                  display:      'flex',
+                  alignItems:   'stretch',
+                  border:       `2px solid ${c.color}`,
+                  borderRadius: '0.75rem',
+                  overflow:     'hidden',
+                  marginBottom: '1rem'
+                }}
               >
-                {c.title}
-              </Link>
-              <button
-                onClick={() => deleteMutation.mutate(c.id)}
-                className="btn-delete"
-                style={{ color: c.color }}
-                title="Delete course"
-                disabled={deleteMutation.isLoading}
-              >
-                {deleteMutation.isLoading ? '…' : '🗑'}
-              </button>
-            </li>
-          ))}
-        </ul>
+                {/* ── Left (75%): Course Button ───────────────── */}
+                <button
+                  onClick={() => navigate(`/courses/${c.id}`)}
+                  onMouseEnter={() => setHoverCourse(c.id)}
+                  onMouseLeave={() => setHoverCourse(null)}
+                  style={{
+                    flex:        '0 0 75%',
+                    border:      'none',
+                    background:  hoverCourse === c.id ? lightBg : 'transparent',
+                    padding:     '1rem',
+                    textAlign:   'left',
+                    cursor:      'pointer',
+                    fontSize:    '1.25rem',
+                    fontWeight:  600,
+                    borderRight: `1px solid ${c.color}`
+                  }}
+                >
+                  {c.title}
+                </button>
+
+                {/* ── Right (25%): Delete Button ───────────────── */}
+                <button
+                  onClick={() => deleteMutation.mutate(c.id)}
+                  onMouseEnter={() => setHoverDelete(c.id)}
+                  onMouseLeave={() => setHoverDelete(null)}
+                  disabled={deleteMutation.isLoading}
+                  style={{
+                    flex:                    '0 0 25%',
+                    border:                  'none',
+                    background:              hoverDelete === c.id ? lightBg : 'transparent',
+                    padding:                 '0.5rem',
+                    cursor:                  'pointer',
+                    fontSize:                '1rem',
+                    lineHeight:              1,
+                    display:                 'flex',
+                    alignItems:              'center',
+                    justifyContent:          'center'
+                  }}
+                >
+                  🗑
+                </button>
+              </div>
+            )
+          })}
+        </div>
       ) : (
         <p>No courses yet — click the “+” below to add one!</p>
       )}
-
-      {/* ── Add & Calendar Buttons ───────────────────────────────────────── */}
-      <div className="actions" style={{ marginTop: '2rem' }}>
-        <Link to="/add">
-          <button className="btn-circle" aria-label="Add Outline">+</button>
-        </Link>
-        <Link to="/calendar">
-          <button className="btn-primary ml-4">Calendar</button>
-        </Link>
-      </div>
-
-      {/* ── Sign Out ─────────────────────────────────────────────────────── */}
-      <div className="actions" style={{ marginTop: '1rem' }}>
-        <button onClick={signOut} className="btn-signout">
-          Sign Out
-        </button>
-      </div>
     </div>
   )
 }

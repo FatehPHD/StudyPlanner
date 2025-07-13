@@ -492,3 +492,40 @@ textarea:focus-visible {
   opacity: 0.5;
   cursor: not-allowed;
 }
+/* ── Modal backdrop & panel ───────────────────────────── */
+.modal-backdrop {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal {
+  background: var(--surface);
+  padding: 1rem;
+  border-radius: 8px;
+  max-width: 400px;
+  width: 100%;
+}
+
+.modal label {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.modal input,
+.modal select {
+  width: 100%;
+  margin-top: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}

@@ -1,13 +1,12 @@
-// src/components/Home.jsx
 import React, { useState } from 'react'
-import { useNavigate, Link }    from 'react-router-dom'
-import { useAuth }              from '../context/AuthContext.jsx'
-import { supabase }             from '../lib/supabaseClient.js'
-import toast                    from 'react-hot-toast'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth }           from '../context/AuthContext.jsx'
+import { supabase }          from '../lib/supabaseClient.js'
+import toast                 from 'react-hot-toast'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
-import { fetchTodos, toggleTodo } from '../services/todoApi.js'
-import { fetchUpcomingEvents }    from '../services/eventApi.js'
+import { fetchTodos, toggleTodo }  from '../services/todoApi.js'
+import { fetchUpcomingEvents }     from '../services/eventApi.js'
 
 // ── Courses Fetch/Delete ──────────────────────────────────────────────────
 async function fetchCourses(userId) {
@@ -29,15 +28,13 @@ async function deleteCourse(courseId) {
 }
 
 export default function Home() {
-  const { user }        = useAuth()
-  const navigate        = useNavigate()
-  const qc              = useQueryClient()
-
-  // track hover states
+  const { user }     = useAuth()
+  const navigate     = useNavigate()
+  const qc           = useQueryClient()
   const [hoverCourse, setHoverCourse] = useState(null)
   const [hoverDelete, setHoverDelete] = useState(null)
 
-  // ── To-Dos ────────────────────────────────────────────────────
+  // ── To-Dos ────────────────────────────────────────────────────────
   const { data: todos = [] } = useQuery({
     queryKey: ['todos', user.id],
     queryFn:  () => fetchTodos(user.id),
@@ -45,10 +42,10 @@ export default function Home() {
   })
   const toggleMutation = useMutation({
     mutationFn: ({ id, completed }) => toggleTodo(id, completed),
-    onSuccess: () => qc.invalidateQueries(['todos', user.id])
+    onSuccess:  () => qc.invalidateQueries(['todos', user.id])
   })
 
-  // ── Upcoming Deadlines ───────────────────────────────────────
+  // ── Upcoming Deadlines ───────────────────────────────────────────
   const {
     data: upcoming = [],
     isFetching: loadingUpcoming
@@ -58,7 +55,7 @@ export default function Home() {
     enabled:  !!user.id
   })
 
-  // ── Courses ─────────────────────────────────────────────────
+  // ── Courses ──────────────────────────────────────────────────────
   const {
     data: courses       = [],
     isLoading: loadingC,
@@ -73,9 +70,8 @@ export default function Home() {
     onMutate: async courseId => {
       await qc.cancelQueries(['courses', user.id])
       const prev = qc.getQueryData(['courses', user.id])
-      qc.setQueryData(
-        ['courses', user.id],
-        old => old.filter(c => c.id !== courseId)
+      qc.setQueryData(['courses', user.id], old =>
+        old.filter(c => c.id !== courseId)
       )
       return { prev }
     },
@@ -96,7 +92,7 @@ export default function Home() {
       <div className="reminders-widget" style={{ textAlign: 'left', margin: '2rem 0' }}>
         <h2>Upcoming To-Dos</h2>
         {todos.length > 0 ? (
-          todos.slice(0,3).map(t => (
+          todos.slice(0, 3).map(t => (
             <div key={t.id} className="todo-card">
               <input
                 type="checkbox"
@@ -109,19 +105,21 @@ export default function Home() {
                 <span className={t.completed ? 'completed' : ''}>
                   {t.title}
                 </span>
-                <small>{new Date(t.due_date).toLocaleDateString()}</small>
+                <small>
+                  {new Date(t.due_date).toLocaleDateString()}
+                </small>
               </div>
             </div>
           ))
         ) : (
-          <p>No to-dos—enjoy your day!</p>
+          <p>No to-dos — enjoy your day!</p>
         )}
         <button
           onClick={() => navigate('/todos')}
           className="btn-link"
           style={{ padding: 0, marginTop: '0.5rem' }}
         >
-          View All &amp; Add New
+          View All & Add New
         </button>
       </div>
 
@@ -131,28 +129,35 @@ export default function Home() {
         {loadingUpcoming ? (
           <p>Loading deadlines…</p>
         ) : upcoming.length > 0 ? (
-          upcoming.map(ev => (
-            <div
-              key={ev.id}
-              style={{
-                display:        'flex',
-                justifyContent: 'space-between',
-                alignItems:     'center',
-                padding:        '0.75rem 1rem',
-                marginBottom:   '0.75rem',
-                background:     'var(--surface)',
-                borderLeft:     `4px solid ${ev.courses.color}`
-              }}
-            >
-              <div>
-                <strong style={{ color: ev.courses.color }}>
-                  {ev.courses.title}:
-                </strong>{' '}
-                {ev.name}
+          upcoming.map(ev => {
+            const dt = new Date(ev.start_time)
+            const label = isNaN(dt)
+              ? 'Unknown date'
+              : dt.toLocaleDateString()
+
+            return (
+              <div
+                key={ev.id}
+                style={{
+                  display:        'flex',
+                  justifyContent: 'space-between',
+                  alignItems:     'center',
+                  padding:        '0.75rem 1rem',
+                  marginBottom:   '0.75rem',
+                  background:     'var(--surface)',
+                  borderLeft:     `4px solid ${ev.courses.color}`
+                }}
+              >
+                <div>
+                  <strong style={{ color: ev.courses.color }}>
+                    {ev.courses.title}:
+                  </strong>{' '}
+                  {ev.name}
+                </div>
+                <small>{label}</small>
               </div>
-              <small>{new Date(ev.date).toLocaleDateString()}</small>
-            </div>
-          ))
+            )
+          })
         ) : (
           <p>No deadlines in the next week 👍</p>
         )}
@@ -163,7 +168,7 @@ export default function Home() {
       {courses.length > 0 ? (
         <div className="course-list">
           {courses.map(c => {
-            const lightBg = `${c.color}20`  // ~12% opacity
+            const lightBg = `${c.color}20`
             return (
               <div
                 key={c.id}
@@ -176,7 +181,7 @@ export default function Home() {
                   marginBottom: '1rem'
                 }}
               >
-                {/* ── Left (75%): Course Button ───────────────── */}
+                {/* Left (75%): Course button */}
                 <button
                   onClick={() => navigate(`/courses/${c.id}`)}
                   onMouseEnter={() => setHoverCourse(c.id)}
@@ -196,23 +201,23 @@ export default function Home() {
                   {c.title}
                 </button>
 
-                {/* ── Right (25%): Delete Button ───────────────── */}
+                {/* Right (25%): Delete button */}
                 <button
                   onClick={() => deleteMutation.mutate(c.id)}
                   onMouseEnter={() => setHoverDelete(c.id)}
                   onMouseLeave={() => setHoverDelete(null)}
                   disabled={deleteMutation.isLoading}
                   style={{
-                    flex:                    '0 0 25%',
-                    border:                  'none',
-                    background:              hoverDelete === c.id ? lightBg : 'transparent',
-                    padding:                 '0.5rem',
-                    cursor:                  'pointer',
-                    fontSize:                '1rem',
-                    lineHeight:              1,
-                    display:                 'flex',
-                    alignItems:              'center',
-                    justifyContent:          'center'
+                    flex:            '0 0 25%',
+                    border:          'none',
+                    background:      hoverDelete === c.id ? lightBg : 'transparent',
+                    padding:         '0.5rem',
+                    cursor:          'pointer',
+                    fontSize:        '1rem',
+                    lineHeight:      1,
+                    display:         'flex',
+                    alignItems:      'center',
+                    justifyContent:  'center'
                   }}
                 >
                   🗑
@@ -222,7 +227,7 @@ export default function Home() {
           })}
         </div>
       ) : (
-        <p>No courses yet — click the “+” below to add one!</p>
+        <p>No courses yet — click the “Add Course” in the menu to add one!</p>
       )}
     </div>
   )

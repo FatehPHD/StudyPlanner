@@ -50,7 +50,7 @@ export default function AddPage() {
     }
     setSaving(true)
 
-    // Create course
+    // 1) Create the course
     const color = `hsl(${Math.floor(Math.random()*360)},70%,60%)`
     const { data: courseData, error: courseErr } = await supabase
       .from('courses')
@@ -63,17 +63,26 @@ export default function AddPage() {
     }
     const course_id = courseData[0].id
 
-    // Insert events with edited items
-    const toInsert = parsedItems.map(item => ({
-      course_id,
-      user_id: user.id,
-      name:    item.name,
-      date:    item.date,
-      percent: item.percent
-    }))
+    // 2) Insert events, populating date, start_time, and end_time
+    const toInsert = parsedItems.map(item => {
+      // assume item.date is "YYYY-MM-DD"
+      const isoDate     = item.date
+      const midnightUTC = `${isoDate}T00:00:00Z`
+      return {
+        course_id,
+        user_id:    user.id,
+        name:       item.name,
+        date:       item.date,
+        percent:    item.percent,
+        start_time: midnightUTC,
+        end_time:   midnightUTC
+      }
+    })
+
     const { error: evErr } = await supabase
       .from('events')
       .insert(toInsert)
+
     setSaving(false)
     if (evErr) {
       toast.error('Failed to save events')
@@ -125,7 +134,7 @@ export default function AddPage() {
                 <th>Name</th>
                 <th>Date</th>
                 <th>Percent</th>
-                <th></th> {/* for remove button */}
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -142,7 +151,6 @@ export default function AddPage() {
                   <td>
                     <input
                       type="date"
-                      // convert any human-readable date string into ISO (YYYY-MM-DD) for the picker
                       value={(() => {
                         const d = new Date(itm.date)
                         return isNaN(d) ? '' : d.toISOString().slice(0,10)
@@ -173,11 +181,7 @@ export default function AddPage() {
             </tbody>
           </table>
 
-          <button
-            onClick={addRow}
-            className="btn-row"
-            disabled={saving}
-          >
+          <button onClick={addRow} className="btn-row" disabled={saving}>
             + Add Row
           </button>
 

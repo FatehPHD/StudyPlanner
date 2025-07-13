@@ -1,4 +1,3 @@
-// src/services/eventApi.js
 import { supabase } from '../lib/supabaseClient.js'
 
 /**
@@ -29,7 +28,7 @@ export async function fetchUpcomingEvents(userId, daysOut = 7) {
       start_time,
       end_time,
       courses ( title, color )
-    `)                   // join in both title & color
+    `)
     .eq('user_id', userId)
     .gte('start_time', today)
     .lte('start_time', cutoff)

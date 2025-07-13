@@ -20,6 +20,8 @@ import startOfWeek from 'date-fns/startOfWeek'
 import getDay      from 'date-fns/getDay'
 import enUS        from 'date-fns/locale/en-US'
 
+import EventForm from './EventForm.jsx'
+
 const locales = { 'en-US': enUS }
 const localizer = dateFnsLocalizer({
   format,
@@ -34,51 +36,52 @@ const DnDCalendar = withDragAndDrop(BigCalendar)
 export default function CalendarPage() {
   const { user }            = useAuth()
   const [events, setEvents] = useState([])
+  const [courses, setCourses] = useState([])
 
-  // controlled navigation & view
+  // modal + slot state
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [slotInfo, setSlotInfo]       = useState(null)
+
+  // navigation & view
   const [date, setDate] = useState(new Date())
   const [view, setView] = useState('month')
 
-  // 1) load events on mount
   useEffect(() => {
     fetchEvents()
+    fetchCourses()
   }, [user.id])
 
   async function fetchEvents() {
     const { data, error } = await supabase
       .from('events')
-      .select(`
-        id,
-        name,
-        start_time,
-        end_time,
-        courses ( title, color )
-      `)
+      .select(`id, name, start_time, end_time, courses ( title, color )`)
       .eq('user_id', user.id)
-
-    if (error) {
-      toast.error('Failed to load events')
-      return
-    }
-
+    if (error) return toast.error('Failed to load events')
     setEvents(
       data.map(e => ({
-        id:    e.id,
-        title: `${e.courses.title}: ${e.name}`,
-        start: new Date(e.start_time),
-        end:   new Date(e.end_time),
+        id:     e.id,
+        title:  `${e.courses.title}: ${e.name}`,
+        start:  new Date(e.start_time),
+        end:    new Date(e.end_time),
         allDay: false,
-        color: e.courses.color
+        color:  e.courses.color,
       }))
     )
   }
 
-  // 2) handle drag (move) preserving duration
+  async function fetchCourses() {
+    const { data, error } = await supabase
+      .from('courses')
+      .select('id, title')
+      .eq('user_id', user.id)
+    if (!error) setCourses(data)
+  }
+
+  // Drag → move
   async function handleEventDrop({ event, start }) {
-    // keep original duration
     const orig = events.find(e => e.id === event.id)
-    const duration = orig.end.getTime() - orig.start.getTime()
-    const newEnd   = new Date(start.getTime() + duration)
+    const dur  = orig.end - orig.start
+    const newEnd = new Date(start.getTime() + dur)
 
     const { error } = await supabase
       .from('events')
@@ -87,22 +90,19 @@ export default function CalendarPage() {
         end_time:   newEnd.toISOString()
       })
       .eq('id', event.id)
+    if (error) return toast.error('Move failed')
 
-    if (error) {
-      toast.error('Could not move event')
-    } else {
-      setEvents(curr =>
-        curr.map(evt =>
-          evt.id === event.id
-            ? { ...evt, start, end: newEnd }
-            : evt
-        )
+    setEvents(evts =>
+      evts.map(evt =>
+        evt.id === event.id
+          ? { ...evt, start, end: newEnd }
+          : evt
       )
-      toast.success('Event moved!')
-    }
+    )
+    toast.success('Moved!')
   }
 
-  // 3) handle resize (stretch)
+  // Resize → stretch
   async function handleEventResize({ event, start, end }) {
     const { error } = await supabase
       .from('events')
@@ -111,25 +111,52 @@ export default function CalendarPage() {
         end_time:   end.toISOString()
       })
       .eq('id', event.id)
+    if (error) return toast.error('Resize failed')
 
-    if (error) {
-      toast.error('Could not resize event')
-    } else {
-      setEvents(curr =>
-        curr.map(evt =>
-          evt.id === event.id
-            ? { ...evt, start, end }
-            : evt
-        )
+    setEvents(evts =>
+      evts.map(evt =>
+        evt.id === event.id
+          ? { ...evt, start, end }
+          : evt
       )
-      toast.success('Event duration updated!')
-    }
+    )
+    toast.success('Duration updated!')
   }
 
-  // optional: selecting empty slot
+  // Select empty slot → open form
   function handleSelectSlot(slot) {
-    console.log('Selected empty slot:', slot)
-    // e.g. open a “new event” modal here
+    setSlotInfo(slot)
+    setIsModalOpen(true)
+  }
+
+  // Create new event
+  async function handleCreate({ title, courseId, start, end }) {
+    const { data, error } = await supabase
+      .from('events')
+      .insert({
+        user_id:    user.id,
+        name:       title,
+        course_id:  courseId,
+        start_time: new Date(start).toISOString(),
+        end_time:   new Date(end).toISOString()
+      })
+      .select('id, courses ( title, color )')
+      .single()
+    if (error) return toast.error('Create failed')
+
+    setEvents(evts => [
+      {
+        id:     data.id,
+        title:  `${data.courses.title}: ${title}`,
+        start:  new Date(start),
+        end:    new Date(end),
+        allDay: false,
+        color:  data.courses.color,
+      },
+      ...evts
+    ])
+    toast.success('Created!')
+    setIsModalOpen(false)
   }
 
   return (
@@ -141,27 +168,23 @@ export default function CalendarPage() {
         startAccessor="start"
         endAccessor="end"
 
-        /* controlled nav & view */
         date={date}
         view={view}
         onNavigate={setDate}
         onView={setView}
 
-        /* drag & drop + resize */
         draggableAccessor={() => true}
         onEventDrop={handleEventDrop}
+
         resizable
         onEventResize={handleEventResize}
 
-        /* optional: select empty slots */
         selectable
         onSelectSlot={handleSelectSlot}
 
-        /* half-hour grid */
         step={30}
         timeslots={2}
 
-        /* color each event block */
         eventPropGetter={event => ({
           style: {
             backgroundColor: event.color,
@@ -173,6 +196,15 @@ export default function CalendarPage() {
         style={{ height: 600, margin: '1rem 0' }}
         views={['month','week','day','agenda']}
       />
+
+      {isModalOpen && slotInfo && (
+        <EventForm
+          slotInfo={slotInfo}
+          courses={courses}
+          onCancel={() => setIsModalOpen(false)}
+          onSave={handleCreate}
+        />
+      )}
     </div>
   )
 }

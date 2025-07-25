@@ -1,10 +1,9 @@
+// CoursePage.jsx - Detailed view for a single course, grades, and events
 import { useParams, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useMemo } from 'react'
-import { useAuth }               from '../context/AuthContext.jsx'
-import { supabase }              from '../lib/supabaseClient.js'
-import toast                     from 'react-hot-toast'
-
-// Chart.js imports
+import { useAuth } from '../context/AuthContext.jsx'
+import { supabase } from '../lib/supabaseClient.js'
+import toast from 'react-hot-toast'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -26,20 +25,19 @@ ChartJS.register(
 )
 
 export default function CoursePage() {
-  const { id }       = useParams()
-  const navigate     = useNavigate()
-  const { user }     = useAuth()
-
-  const [course, setCourse]         = useState(null)
-  const [events, setEvents]         = useState([])
-  const [editingId, setEditingId]   = useState(null)
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const { user } = useAuth()
+  const [course, setCourse] = useState(null)
+  const [events, setEvents] = useState([])
+  const [editingId, setEditingId] = useState(null)
   const [tempScores, setTempScores] = useState({ received: '', total: '' })
-  const [saving, setSaving]         = useState(false)
-  const [sortKey, setSortKey]       = useState(null)
-  const [sortAsc, setSortAsc]       = useState(true)
-  const [target, setTarget]         = useState('')
+  const [saving, setSaving] = useState(false)
+  const [sortKey, setSortKey] = useState(null)
+  const [sortAsc, setSortAsc] = useState(true)
+  const [target, setTarget] = useState('')
 
-  // Fetch course & events
+  // Fetch course and events on mount/id change
   useEffect(() => {
     supabase
       .from('courses')
@@ -47,28 +45,20 @@ export default function CoursePage() {
       .eq('id', id)
       .single()
       .then(({ data }) => setCourse(data))
-
     fetchEvents()
   }, [id])
 
+  // Fetch all events for this course
   async function fetchEvents() {
     const { data } = await supabase
       .from('events')
-      .select(
-        `id,
-         name,
-         date,
-         percent,
-         score_received,
-         score_total`
-      )
+      .select('id, name, date, percent, score_received, score_total')
       .eq('course_id', id)
       .order('date', { ascending: true })
-
     setEvents(data || [])
   }
 
-  // ── Raw & normalized grade calculations ──────────────────────────────
+  // Grade calculations
   const totalEarned = useMemo(() => {
     return events.reduce((sum, e) => {
       if (e.score_received != null && e.score_total > 0) {
@@ -78,7 +68,6 @@ export default function CoursePage() {
       return sum
     }, 0)
   }, [events])
-
   const totalWeight = useMemo(() => {
     return events.reduce((sum, e) => {
       return e.score_received != null && e.score_total > 0
@@ -86,12 +75,11 @@ export default function CoursePage() {
         : sum
     }, 0)
   }, [events])
-
   const normalizedGrade = useMemo(() => {
     return totalWeight > 0 ? (totalEarned / totalWeight) * 100 : 0
   }, [totalEarned, totalWeight])
 
-  // ── Forecasting: what remains & needed score ─────────────────────────
+  // Target grade forecasting
   const W_done = useMemo(
     () => events.reduce((sum, e) => {
       return e.score_received != null && e.score_total > 0
@@ -100,7 +88,6 @@ export default function CoursePage() {
     }, 0),
     [events]
   )
-
   const achieved = useMemo(
     () => events.reduce((sum, e) => {
       if (e.score_received != null && e.score_total > 0) {
@@ -111,21 +98,18 @@ export default function CoursePage() {
     }, 0),
     [events]
   )
-
   const W_rem = Math.max(0, 100 - W_done)
-
   const needed = useMemo(() => {
     if (!target || W_rem <= 0) return null
     return ((Number(target) - achieved) / W_rem) * 100
   }, [target, achieved, W_rem])
 
-  // ── Sparkline data ────────────────────────────────────────────────────
+  // Sparkline chart data
   const sparkData = useMemo(() => {
     const labels = []
     const dataPoints = []
     let cumEarn = 0
     let cumWeight = 0
-
     events.forEach(e => {
       if (e.score_received != null && e.score_total > 0) {
         cumWeight += parseFloat(e.percent)
@@ -134,7 +118,6 @@ export default function CoursePage() {
         dataPoints.push(+((cumEarn / cumWeight) * 100).toFixed(2))
       }
     })
-
     return {
       labels,
       datasets: [
@@ -151,7 +134,6 @@ export default function CoursePage() {
       ]
     }
   }, [events])
-
   const sparkOptions = {
     scales: {
       x: { display: false },
@@ -165,12 +147,12 @@ export default function CoursePage() {
     maintainAspectRatio: false
   }
 
-  // ── Edit helpers ───────────────────────────────────────────────────────
+  // Edit helpers
   function startEdit(e) {
     setEditingId(e.id)
     setTempScores({
       received: e.score_received ?? '',
-      total:    e.score_total    ?? ''
+      total: e.score_total ?? ''
     })
   }
   function cancelEdit() {
@@ -188,7 +170,7 @@ export default function CoursePage() {
       .from('events')
       .update({
         score_received: Number(received),
-        score_total:    Number(total)
+        score_total: Number(total)
       })
       .eq('id', eventId)
     setSaving(false)
@@ -206,7 +188,7 @@ export default function CoursePage() {
     toast.success('Score cleared')
   }
 
-  // ── Sorting ────────────────────────────────────────────────────────────
+  // Sorting helpers
   const sortedEvents = useMemo(() => {
     if (!sortKey) return events
     return [...events].sort((a, b) => {
@@ -223,7 +205,6 @@ export default function CoursePage() {
       return 0
     })
   }, [events, sortKey, sortAsc])
-
   function handleSort(key) {
     if (sortKey === key) {
       setSortAsc(!sortAsc)
@@ -237,76 +218,60 @@ export default function CoursePage() {
 
   return (
     <div className="container">
-      <h1 style={{ color: course.color }}>
-        {course.title}{' '}
-        <button
-          onClick={async () => {
-            await supabase.from('courses').delete().eq('id', id)
-            navigate('/')
-          }}
-          className="btn-delete ml-3"
-          title="Delete course"
-          style={{ color: course.color }}
-        >
-          🗑
-        </button>
-      </h1>
-
-      {/* ── Raw & Normalized Summary ──────────────────────────────────────── */}
-      <h3 className="score-summary">
-        Overall: {totalEarned.toFixed(2)}% out of 100%
-      </h3>
-      <h3 className="score-summary">
-        Sitting: {normalizedGrade.toFixed(2)}% for the {totalWeight.toFixed(2)}%
-      </h3>
-
-      {/* ── Sparkline ─────────────────────────────────────────────────────── */}
-      <div className="chart-container" style={{ height: '150px' }}>
-        <Line data={sparkData} options={sparkOptions} />
-      </div>
-
-      {/* ── Sort Controls ─────────────────────────────────────────────────── */}
-      <div className="actions">
-        <button onClick={() => handleSort('date')} className="btn-link">
-          Sort by Date {sortKey === 'date' ? (sortAsc ? '↑' : '↓') : ''}
-        </button>
-        <button onClick={() => handleSort('percent')} className="btn-link ml-3">
-          Sort by Weight {sortKey === 'percent' ? (sortAsc ? '↑' : '↓') : ''}
-        </button>
-      </div>
-
-      {/* ── Assessments & Deadlines Table ───────────────────────────────── */}
-      <h2>Assessments &amp; Deadlines</h2>
-      <table className="score-table">
-        <thead>
-          <tr>
-            <th>Assessment</th>
-            <th>Score</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sortedEvents.map(e => {
-            const pct =
-              e.score_received != null && e.score_total > 0
-                ? ((e.score_received / e.score_total) * parseFloat(e.percent)).toFixed(2)
-                : null
-
-            return (
-              <tr key={e.id}>
+      <div className="card" style={{ maxWidth: 700, margin: '0 auto' }}>
+        <h1 className="playful-heading" style={{ color: course.color, background: 'none', WebkitTextFillColor: 'unset' }}>
+          {course.title}{' '}
+          <button
+            onClick={async () => {
+              await supabase.from('courses').delete().eq('id', id)
+              navigate('/')
+            }}
+            className="btn-fun"
+            title="Delete course"
+            style={{ color: course.color, background: 'none', marginLeft: '0.5em', padding: '0.4em 1em', fontSize: '1.1em' }}
+          >
+            🗑
+          </button>
+        </h1>
+        {/* Grade summary */}
+        <h3 className="score-summary">
+          Overall: {totalEarned.toFixed(2)}% out of 100%
+        </h3>
+        <h3 className="score-summary">
+          Sitting: {normalizedGrade.toFixed(2)}% for the {totalWeight.toFixed(2)}%
+        </h3>
+        {/* Sparkline chart */}
+        <div className="chart-container" style={{ height: '150px' }}>
+          <Line data={sparkData} options={sparkOptions} />
+        </div>
+        {/* Event table */}
+        <table className="score-table" style={{ marginTop: '2rem' }}>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Date</th>
+              <th>Weight (%)</th>
+              <th>Score</th>
+              <th>Percent</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedEvents.map(ev => (
+              <tr key={ev.id}>
+                <td>{ev.name}</td>
+                <td>{ev.date}</td>
+                <td>{ev.percent}</td>
                 <td>
-                  {e.name} — {e.date} — {e.percent}%
-                </td>
-                <td>
-                  {editingId === e.id ? (
-                    <div className="score-actions">
+                  {editingId === ev.id ? (
+                    <>
                       <input
                         type="number"
                         placeholder="scored"
                         value={tempScores.received}
-                        onChange={v =>
-                          setTempScores(ts => ({ ...ts, received: v.target.value }))
-                        }
-                        className="score-input"
+                        onChange={v => setTempScores(ts => ({ ...ts, received: v.target.value }))}
+                        className="input-field"
+                        style={{ width: 60, marginRight: 4 }}
                         disabled={saving}
                       />
                       /
@@ -314,53 +279,63 @@ export default function CoursePage() {
                         type="number"
                         placeholder="total"
                         value={tempScores.total}
-                        onChange={v =>
-                          setTempScores(ts => ({ ...ts, total: v.target.value }))
-                        }
-                        className="score-input ml-1"
+                        onChange={v => setTempScores(ts => ({ ...ts, total: v.target.value }))}
+                        className="input-field"
+                        style={{ width: 60, marginLeft: 4 }}
                         disabled={saving}
                       />
+                    </>
+                  ) : (
+                    <>{ev.score_received} / {ev.score_total}</>
+                  )}
+                </td>
+                <td>
+                  {ev.score_total ? ((ev.score_received / ev.score_total) * 100).toFixed(2) : '-'}%
+                </td>
+                <td>
+                  {editingId === ev.id ? (
+                    <>
                       <button
-                        onClick={() => saveScores(e.id)}
-                        className="btn-primary ml-2"
+                        onClick={() => saveScores(ev.id)}
+                        className="btn-fun"
+                        style={{ padding: '0.3em 1em', fontSize: '1em', marginRight: 4 }}
                         disabled={saving}
                       >
                         Save
                       </button>
                       <button
                         onClick={cancelEdit}
-                        className="btn-link ml-2"
+                        className="btn-fun"
+                        style={{ padding: '0.3em 1em', fontSize: '1em', background: 'var(--surface-alt)', color: 'var(--accent2)' }}
                         disabled={saving}
                       >
                         Cancel
                       </button>
-                    </div>
-                  ) : e.score_received != null && e.score_total > 0 ? (
-                    <div className="score-actions">
-                      <strong>
-                        {e.score_received} / {e.score_total}
-                      </strong>{' '}
-                      (<em>{pct} %</em>)
-                      <button onClick={() => startEdit(e)} className="btn-link ml-2">
-                        Edit
-                      </button>
-                      <button onClick={() => clearScore(e.id)} className="btn-link ml-2">
+                      <button
+                        onClick={() => clearScore(ev.id)}
+                        className="btn-fun"
+                        style={{ padding: '0.3em 1em', fontSize: '1em', background: 'var(--surface-alt)', color: 'var(--accent)' }}
+                        disabled={saving}
+                      >
                         Clear
                       </button>
-                    </div>
+                    </>
                   ) : (
-                    <button onClick={() => startEdit(e)} className="btn-link">
-                      Enter score
+                    <button
+                      onClick={() => startEdit(ev)}
+                      className="btn-fun"
+                      style={{ padding: '0.3em 1em', fontSize: '1em' }}
+                    >
+                      Edit
                     </button>
                   )}
                 </td>
               </tr>
-            )
-          })}
-        </tbody>
-      </table>
-
-      {/* ── Target-Grade Forecasting ─────────────────────────────────────── */}
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {/* Target-grade forecasting */}
       <div className="form-group">
         <label>
           Target Final Grade (%):{' '}

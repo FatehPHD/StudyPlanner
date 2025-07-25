@@ -1,5 +1,9 @@
+# requirements.txt - Backend dependencies for Study Planner
 flask
-openai
 flask-cors
-supabase
+openai
+python-dotenv
 python-docx
+pdfminer.six
+psycopg2-binary
+# supabase (remove if not used in backend)

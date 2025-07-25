@@ -1,3 +1,4 @@
+// PlannerForm.jsx - Handles outline text input and file upload for course parsing
 import { useState } from 'react'
 import { parseOutline } from '../services/outlineApi.js'
 import toast from 'react-hot-toast'
@@ -10,25 +11,20 @@ export default function PlannerForm({
   onParsed
 }) {
   const [loading, setLoading] = useState(false)
-
-  // Handle PDF / Word file upload
+  // Handle PDF/Word file upload and extract outline
   async function handleFileUpload(e) {
     const file = e.target.files[0]
     if (!file) return
-
     setLoading(true)
     try {
       const formData = new FormData()
       formData.append('file', file)
-
-      // Hit your new extract-outline endpoint
+      // Call backend endpoint to extract outline
       const res = await axios.post(
         'http://localhost:5000/api/extract-outline',
         formData,
         { headers: { 'Content-Type': 'multipart/form-data' } }
       )
-
-      // Fill textarea with extracted text
       setOutlineText(res.data.text || '')
       toast.success('Outline extracted from file!')
     } catch (err) {
@@ -38,12 +34,10 @@ export default function PlannerForm({
       setLoading(false)
     }
   }
-
-  // Existing parse-outline handler
+  // Parse outline text using backend service
   async function handleSubmit(e) {
     e.preventDefault()
     if (!outlineText.trim() || loading || disabled) return
-
     setLoading(true)
     try {
       const { data } = await parseOutline(outlineText)
@@ -56,10 +50,9 @@ export default function PlannerForm({
       setLoading(false)
     }
   }
-
   return (
     <form onSubmit={handleSubmit}>
-      {/* New file-upload input */}
+      {/* File upload input */}
       <div className="form-group">
         <label>
           Upload syllabus (PDF or Word):
@@ -72,8 +65,7 @@ export default function PlannerForm({
           />
         </label>
       </div>
-
-      {/* Fallback textarea */}
+      {/* Outline textarea fallback */}
       <textarea
         rows={8}
         cols={60}

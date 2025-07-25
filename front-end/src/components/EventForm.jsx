@@ -1,63 +1,91 @@
-// src/components/EventForm.jsx
+// EventForm.jsx - Modal form for creating a new event
 import React, { useState } from 'react'
+import DatePicker from 'react-datepicker'
+import 'react-datepicker/dist/react-datepicker.css'
 
-export default function EventForm({
-  slotInfo,    // { start: Date, end: Date }
-  courses,     // Array<{ id, title }>
-  onCancel,    // () => void
-  onSave       // ({ title, courseId, start, end }) => void
-}) {
-  const [title, setTitle]       = useState('')
-  const [courseId, setCourseId] = useState(courses[0]?.id || '')
-  const [start, setStart]       = useState(slotInfo.start.toISOString().slice(0,16))
-  const [end, setEnd]           = useState(slotInfo.end.toISOString().slice(0,16))
+const personalColors = [
+  '#6c757d', '#dc3545', '#fd7e14', '#ffc107', '#28a745',
+  '#17a2b8', '#007bff', '#6f42c1', '#e83e8c', '#20c997'
+]
+
+export default function EventForm({ slotInfo, onCancel, onSave }) {
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [eventColor, setEventColor] = useState(personalColors[0])
+  const [start, setStart] = useState(new Date(slotInfo.start))
+  const [end, setEnd] = useState(new Date(slotInfo.end))
 
   return (
     <div className="modal-backdrop">
-      <div className="modal">
-        <h2>New Event</h2>
-        <label>
-          Course
-          <select value={courseId} onChange={e => setCourseId(e.target.value)}>
-            {courses.map(c => (
-              <option key={c.id} value={c.id}>{c.title}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Title
-          <input
-            type="text"
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-          />
-        </label>
-        <label>
-          Start
-          <input
-            type="datetime-local"
-            value={start}
-            onChange={e => setStart(e.target.value)}
-          />
-        </label>
-        <label>
-          End
-          <input
-            type="datetime-local"
-            value={end}
-            onChange={e => setEnd(e.target.value)}
-          />
-        </label>
-        <div className="modal-actions">
-          <button onClick={onCancel}>Cancel</button>
+      <div className="modal" style={{ maxWidth: 400, borderRadius: 16 }}>
+        <h2 style={{ color: '#a259f7', textAlign: 'center' }}>Add New Event</h2>
+        {/* Color picker */}
+        <div style={{ display: 'flex', justifyContent: 'center', margin: '12px 0' }}>
+          {personalColors.map(color => (
+            <div
+              key={color}
+              onClick={() => setEventColor(color)}
+              style={{
+                width: 24, height: 24, borderRadius: '50%',
+                backgroundColor: color, margin: '0 4px',
+                border: eventColor === color ? '3px solid #333' : '2px solid #eee',
+                cursor: 'pointer'
+              }}
+            />
+          ))}
+        </div>
+        {/* Event title */}
+        <input
+          type="text"
+          placeholder="Event name"
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          style={{ width: '100%', marginBottom: 8, borderRadius: 8, padding: 8 }}
+        />
+        {/* Event description */}
+        <input
+          type="text"
+          placeholder="Description (e.g., Go soccer)"
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          style={{ width: '100%', marginBottom: 8, borderRadius: 8, padding: 8 }}
+        />
+        {/* Start time */}
+        <label>Start Time:</label>
+        <DatePicker
+          selected={start}
+          onChange={date => setStart(date)}
+          showTimeSelect
+          timeIntervals={15}
+          dateFormat="Pp"
+          className="input-field"
+          placeholderText="Select start date and time"
+          style={{ width: '100%', marginBottom: 8, borderRadius: 8, padding: 8 }}
+        />
+        {/* End time */}
+        <label>End Time:</label>
+        <DatePicker
+          selected={end}
+          onChange={date => setEnd(date)}
+          showTimeSelect
+          timeIntervals={15}
+          dateFormat="Pp"
+          className="input-field"
+          placeholderText="Select end date and time"
+          style={{ width: '100%', marginBottom: 16, borderRadius: 8, padding: 8 }}
+        />
+        {/* Action buttons */}
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <button onClick={onCancel} style={{ flex: 1, marginRight: 8 }}>Cancel</button>
           <button
-            onClick={() => onSave({ title, courseId, start, end })}
+            onClick={() => onSave({ title, description, start, end, color: eventColor })}
+            style={{ flex: 1, background: '#a259f7', color: 'white', borderRadius: 8 }}
             disabled={!title}
           >
-            Save
+            Add Event
           </button>
         </div>
       </div>
     </div>
   )
-}
+} 

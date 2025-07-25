@@ -1,4 +1,4 @@
-// src/components/TodosPage.jsx
+// TodosPage.jsx - Full to-do list management for the user
 import React, { useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -13,15 +13,13 @@ import {
 export default function TodosPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
-
-  // Load all to-dos
+  // Load all to-dos for the user
   const { data: todos = [], isLoading } = useQuery({
     queryKey: ['todos', user.id],
     queryFn: () => fetchTodos(user.id),
     enabled: !!user.id
   })
-
-  // Add
+  // Add a new to-do
   const addMutation = useMutation({
     mutationFn: obj => addTodo(user.id, obj),
     onSuccess: () => {
@@ -29,14 +27,12 @@ export default function TodosPage() {
       qc.invalidateQueries({ queryKey: ['todos', user.id] })
     }
   })
-
-  // Toggle
+  // Toggle a to-do's completion
   const toggleMutation = useMutation({
     mutationFn: ({ id, completed }) => toggleTodo(id, completed),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['todos', user.id] })
   })
-
-  // Delete
+  // Delete a to-do
   const deleteMutation = useMutation({
     mutationFn: id => deleteTodo(id),
     onSuccess: () => {
@@ -44,10 +40,9 @@ export default function TodosPage() {
       qc.invalidateQueries({ queryKey: ['todos', user.id] })
     }
   })
-
-  const [title, setTitle]     = useState('')
+  const [title, setTitle] = useState('')
   const [dueDate, setDueDate] = useState('')
-
+  // Handle add form submit
   function handleAdd(e) {
     e.preventDefault()
     if (!title || !dueDate) {
@@ -58,80 +53,60 @@ export default function TodosPage() {
     setTitle('')
     setDueDate('')
   }
-
   if (isLoading) return <p>Loading to-dos…</p>
-
   return (
     <div className="container">
-      <h1>All To-Dos</h1>
-
-      {/* Add Form */}
-      <form
-        onSubmit={handleAdd}
-        className="form-group"
-        style={{ marginBottom: '1.5rem' }}
-      >
-        <input
-          type="text"
-          placeholder="New to-do title"
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          className="input-field"
-          style={{ width: '40%' }}
-        />
-        <input
-          type="date"
-          value={dueDate}
-          onChange={e => setDueDate(e.target.value)}
-          className="input-field ml-2"
-        />
-        <button
-          type="submit"
-          className="btn-primary ml-2"
-          disabled={addMutation.isLoading}
-        >
-          {addMutation.isLoading ? 'Adding…' : 'Add To-Do'}
-        </button>
-      </form>
-
-      {/* To-Do List */}
-      <ul className="event-list" style={{ listStyle: 'none', padding: 0 }}>
-        {todos.map(t => (
-          <li
-            key={t.id}
-            className="todo-item"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              marginBottom: '0.5rem'
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={t.completed}
-              onChange={() =>
-                toggleMutation.mutate({ id: t.id, completed: !t.completed })
-              }
-            />
-            <span
-              style={{
-                flex: 1,
-                textDecoration: t.completed ? 'line-through' : 'none'
-              }}
-            >
-              {t.title} — {new Date(t.due_date).toLocaleDateString()}
-            </span>
-            <button
-              onClick={() => deleteMutation.mutate(t.id)}
-              className="btn-delete"
-              disabled={deleteMutation.isLoading}
-            >
-              🗑
-            </button>
-          </li>
-        ))}
-      </ul>
+      <div className="card" style={{ maxWidth: 600, margin: '0 auto' }}>
+        <h1 className="playful-heading">All To-Dos</h1>
+        <form onSubmit={handleAdd} style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+          <input
+            type="text"
+            placeholder="To-do title"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            className="input-field"
+            style={{ flex: 2, minWidth: 120 }}
+          />
+          <input
+            type="date"
+            value={dueDate}
+            onChange={e => setDueDate(e.target.value)}
+            className="input-field"
+            style={{ flex: 1, minWidth: 120 }}
+          />
+          <button type="submit" className="btn-fun">
+            Add
+          </button>
+        </form>
+        <div className="card-list">
+          {todos.length > 0 ? (
+            todos.map(t => (
+              <div key={t.id} className="todo-card" style={{ display: 'flex', alignItems: 'center' }}>
+                <input
+                  type="checkbox"
+                  checked={t.completed}
+                  onChange={() => toggleMutation.mutate({ id: t.id, completed: !t.completed })}
+                  className="fun-checkbox"
+                />
+                <div className="todo-card-body" style={{ flex: 1 }}>
+                  <span className={t.completed ? 'completed' : ''}>{t.title}</span>
+                  <small>{new Date(t.due_date).toLocaleDateString()}</small>
+                </div>
+                <button
+                  onClick={() => deleteMutation.mutate(t.id)}
+                  className="btn-fun"
+                  style={{ padding: '0.4em 1em', fontSize: '1.1em', marginLeft: '0.5em' }}
+                  title="Delete"
+                >
+                  🗑
+                </button>
+              </div>
+            ))
+          ) : (
+            <p>No to-dos yet!</p>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

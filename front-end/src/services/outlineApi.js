@@ -1,6 +1,8 @@
 // outlineApi.js - API call to parse course outline text using backend
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+
 export function parseOutline(outlineText) {
-  return fetch('http://localhost:5000/api/parse-outline', {
+  return fetch(`${API_BASE_URL}/api/parse-outline`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ outlineText })

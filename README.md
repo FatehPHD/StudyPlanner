@@ -12,8 +12,6 @@ Use this guide when you clone the repo onto a new machine.
 
    b) Install Python packages
       pip install -r requirements.txt
-      pip install pdfminer.six python-docx
-
 
    c) (Optional) Set your OpenAI key for real GPT calls
       – macOS/Linux: export OPENAI_API_KEY="sk-..."
@@ -28,23 +26,16 @@ Use this guide when you clone the repo onto a new machine.
 
    b) Install node modules
       npm install
-      npm install react-router-dom
-      npm install react-calendar
-      npm install @supabase/supabase-js
-      npm install react-hot-toast
-      npm install @tanstack/react-query
-      npm install react-error-boundary
-      npm install chart.js react-chartjs-2
 
-      
    c) Start the development server
       npm run dev
 
 4. Verify everything works
    1. Open http://localhost:5173 in your browser
-   2. Paste a course outline into the text box
-   3. Click Parse Outline
-   4. You should see the list of items appear below the form
+   2. Register/login with Supabase
+   3. Add a course and paste a course outline
+   4. Click Parse Outline
+   5. You should see the list of items appear below the form
 
 
 
@@ -60,15 +51,16 @@ Study Planner is a personal study management web application that allows student
 - Calendar View: Sync deadlines into an interactive calendar
 - Dark Mode & Theming: Light/dark toggle and CSS variables
 - Responsive Design: Utility-based CSS for a clean, mobile-friendly UI
+- File Upload: Import course outlines from PDF and Word documents
 
 ## Tech Stack
 
-- React + Vite
-- Plain CSS with utility classes and CSS variables
+- React + Vite (Frontend)
+- Flask (Backend API)
 - Supabase (PostgreSQL, Auth)
-- React Query
-- Chart.js via react-chartjs-2
-- Custom AI parsing service powered by GPT
+- OpenAI GPT (AI parsing)
+- React Query (Data fetching)
+- Chart.js (Data visualization)
 
 ## Getting Started
 
@@ -77,39 +69,129 @@ Study Planner is a personal study management web application that allows student
    git clone https://github.com/your-username/study-planner.git
    cd study-planner
    ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Create a `.env` file with:
+
+2. Set up Supabase:
+   - Create a new Supabase project
+   - Set up database tables (see Database Setup below)
+   - Enable Row Level Security (RLS) on all tables
+   - Get your project URL and anon key
+
+3. Configure environment variables:
+   Create `.env` file in the `front-end` directory:
    ```bash
    VITE_SUPABASE_URL=https://<your-supabase-project>.supabase.co
    VITE_SUPABASE_ANON_KEY=<your-anon-public-key>
    ```
-4. Set up the database tables in Supabase:
-   - `courses` (id, user_id, title, color, inserted_at)
-   - `events` (id, course_id, user_id, name, date, percent, score_received, score_total, inserted_at)
-5. Start the development server:
+
+4. Start the backend:
    ```bash
+   cd backend
+   pip install -r requirements.txt
+   python run.py
+   ```
+
+5. Start the frontend (in a new terminal):
+   ```bash
+   cd front-end
+   npm install
    npm run dev
    ```
+
+6. Access the application:
+   Open http://localhost:5173 in your browser
+
+## Database Setup
+
+Run these SQL commands in your Supabase SQL Editor:
+
+```sql
+-- Create profiles table
+CREATE TABLE profiles (
+    id SERIAL PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    is_admin BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create courses table
+CREATE TABLE courses (
+    id SERIAL PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    color TEXT DEFAULT '#3B82F6',
+    inserted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create events table
+CREATE TABLE events (
+    id SERIAL PRIMARY KEY,
+    course_id INTEGER REFERENCES courses(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    date DATE NOT NULL,
+    percent DECIMAL(5,2),
+    score_received DECIMAL(5,2),
+    score_total DECIMAL(5,2),
+    inserted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create todos table
+CREATE TABLE todos (
+    id SERIAL PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    completed BOOLEAN DEFAULT FALSE,
+    inserted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable Row Level Security
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE todos ENABLE ROW LEVEL SECURITY;
+
+-- Create RLS policies
+CREATE POLICY "Users can view own profile" ON profiles FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own profile" ON profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can view own courses" ON courses FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own courses" ON courses FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own courses" ON courses FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own courses" ON courses FOR DELETE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can view own events" ON events FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own events" ON events FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own events" ON events FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own events" ON events FOR DELETE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can view own todos" ON todos FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own todos" ON todos FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own todos" ON todos FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own todos" ON todos FOR DELETE USING (auth.uid() = user_id);
+```
 
 ## Project Structure
 
 ```
-/
-├── public/
-├── src/
-│   ├── components/
-│   ├── context/
-│   ├── lib/
-│   ├── services/
-│   ├── App.jsx
-│   ├── main.jsx
-│   └── App.css
-├── .env
-├── package.json
-└── README.md
+StudyPlanner/
+├── backend/                 # Flask backend
+│   ├── app/
+│   │   ├── __init__.py     # Flask app factory
+│   │   └── services/
+│   │       └── gpt_client.py
+│   ├── requirements.txt    # Python dependencies
+│   └── run.py             # Server entry point
+├── front-end/              # React frontend
+│   ├── src/
+│   │   ├── components/     # React components
+│   │   ├── context/        # React context providers
+│   │   ├── lib/            # Utility libraries
+│   │   ├── services/       # API services
+│   │   └── main.jsx        # App entry point
+│   ├── package.json        # Node dependencies
+│   └── vite.config.js      # Vite configuration
+└── README.md               # This file
 ```
 
 ## Contributing

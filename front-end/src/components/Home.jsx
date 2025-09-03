@@ -147,23 +147,28 @@ export default function Home() {
             const label = isNaN(dt)
               ? 'Unknown date'
               : dt.toLocaleDateString()
+            
+            // Use event's own color if not linked to course, otherwise use course color
+            const eventColor = ev.course_id ? ev.courses?.color : ev.color
+            const eventTitle = ev.course_id ? ev.courses?.title : null
+            
             return (
               <div
                 key={ev.id}
                 className="todo-card"
-                style={{ borderLeft: `4px solid ${ev.courses?.color || '#6c757d'}` }}
+                style={{ borderLeft: `4px solid ${eventColor || '#6c757d'}` }}
               >
                 <div>
-                  {ev.courses ? (
+                  {eventTitle ? (
                     <>
-                      <strong style={{ color: ev.courses.color }}>
-                        {ev.courses.title}:
+                      <strong style={{ color: eventColor }}>
+                        {eventTitle}:
                       </strong>{' '}
                       {ev.name}
                     </>
                   ) : (
                     <>
-                      <strong>{ev.name}</strong>
+                      <strong style={{ color: eventColor }}>{ev.name}</strong>
                       {ev.description && (
                         <span style={{ color: '#666', fontSize: '0.9em' }}>
                           {' '}— {ev.description}

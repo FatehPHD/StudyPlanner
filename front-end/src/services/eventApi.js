@@ -20,6 +20,8 @@ export async function fetchUpcomingEvents(userId, daysOut = 7) {
       name,
       start_time,
       end_time,
+      color,
+      course_id,
       courses ( title, color )
     `)
     .eq('user_id', userId)

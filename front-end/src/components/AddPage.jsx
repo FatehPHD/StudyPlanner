@@ -47,7 +47,7 @@ export default function AddPage() {
   function addRow() {
     setParsedItems(xs => [
       ...xs,
-      { name: '', date: '', percent: '' }
+      { name: '', date: '', percent: '', included: true }
     ])
   }
 
@@ -101,6 +101,7 @@ export default function AddPage() {
         name: item.name,
         date: dateStr,
         percent: item.percent,
+        included: item.included !== false, // Default to true if not specified
         start_time: start.toISOString(),
         end_time: end.toISOString()
       }
@@ -158,6 +159,7 @@ export default function AddPage() {
                     <th>Name</th>
                     <th>Date</th>
                     <th>Percent</th>
+                    <th>Included</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -196,6 +198,20 @@ export default function AddPage() {
                           disabled={saving}
                           className="input-field"
                         />
+                      </td>
+                      <td>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <input
+                            type="checkbox"
+                            checked={itm.included !== false}
+                            onChange={e => updateItem(i, 'included', e.target.checked)}
+                            disabled={saving}
+                            style={{ transform: 'scale(1.2)' }}
+                          />
+                          <span style={{ fontSize: '0.9rem', color: itm.included !== false ? 'var(--accent)' : 'var(--text-muted)' }}>
+                            {itm.included !== false ? 'Included' : 'Not Included'}
+                          </span>
+                        </label>
                       </td>
                       <td>
                         <button

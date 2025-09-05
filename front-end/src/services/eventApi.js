@@ -15,15 +15,16 @@ export async function fetchUpcomingEvents(userId, daysOut = 7) {
     .slice(0, 10)
   const { data, error } = await supabase
     .from('events')
-    .select(`
-      id,
-      name,
-      start_time,
-      end_time,
-      color,
-      course_id,
-      courses ( title, color )
-    `)
+          .select(`
+        id,
+        name,
+        start_time,
+        end_time,
+        color,
+        course_id,
+        included,
+        courses ( title, color )
+      `)
     .eq('user_id', userId)
     .gte('start_time', today)
     .lte('start_time', cutoff)

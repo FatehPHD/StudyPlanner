@@ -132,6 +132,7 @@ CREATE TABLE events (
     percent DECIMAL(5,2),
     score_received DECIMAL(5,2),
     score_total DECIMAL(5,2),
+    included BOOLEAN DEFAULT TRUE,
     inserted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

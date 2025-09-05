@@ -52,16 +52,16 @@ export default function CoursePage() {
   async function fetchEvents() {
     const { data } = await supabase
       .from('events')
-      .select('id, name, date, percent, score_received, score_total')
+      .select('id, name, date, percent, score_received, score_total, included')
       .eq('course_id', id)
       .order('date', { ascending: true })
     setEvents(data || [])
   }
 
-  // Grade calculations
+  // Grade calculations (only for included items)
   const totalEarned = useMemo(() => {
     return events.reduce((sum, e) => {
-      if (e.score_received != null && e.score_total > 0) {
+      if (e.included !== false && e.score_received != null && e.score_total > 0) {
         const w = parseFloat(e.percent)
         return sum + (e.score_received / e.score_total) * w
       }
@@ -70,7 +70,7 @@ export default function CoursePage() {
   }, [events])
   const totalWeight = useMemo(() => {
     return events.reduce((sum, e) => {
-      return e.score_received != null && e.score_total > 0
+      return e.included !== false && e.score_received != null && e.score_total > 0
         ? sum + parseFloat(e.percent)
         : sum
     }, 0)
@@ -79,10 +79,10 @@ export default function CoursePage() {
     return totalWeight > 0 ? (totalEarned / totalWeight) * 100 : 0
   }, [totalEarned, totalWeight])
 
-  // Target grade forecasting
+  // Target grade forecasting (only for included items)
   const W_done = useMemo(
     () => events.reduce((sum, e) => {
-      return e.score_received != null && e.score_total > 0
+      return e.included !== false && e.score_received != null && e.score_total > 0
         ? sum + parseFloat(e.percent)
         : sum
     }, 0),
@@ -90,7 +90,7 @@ export default function CoursePage() {
   )
   const achieved = useMemo(
     () => events.reduce((sum, e) => {
-      if (e.score_received != null && e.score_total > 0) {
+      if (e.included !== false && e.score_received != null && e.score_total > 0) {
         const w = parseFloat(e.percent)
         return sum + (e.score_received / e.score_total) * w
       }
@@ -104,14 +104,14 @@ export default function CoursePage() {
     return ((Number(target) - achieved) / W_rem) * 100
   }, [target, achieved, W_rem])
 
-  // Sparkline chart data
+  // Sparkline chart data (only for included items)
   const sparkData = useMemo(() => {
     const labels = []
     const dataPoints = []
     let cumEarn = 0
     let cumWeight = 0
     events.forEach(e => {
-      if (e.score_received != null && e.score_total > 0) {
+      if (e.included !== false && e.score_received != null && e.score_total > 0) {
         cumWeight += parseFloat(e.percent)
         cumEarn += (e.score_received / e.score_total) * parseFloat(e.percent)
         labels.push(e.date)
@@ -187,6 +187,16 @@ export default function CoursePage() {
     fetchEvents()
     toast.success('Score cleared')
   }
+  
+  // Toggle included status
+  async function toggleIncluded(eventId, currentStatus) {
+    await supabase
+      .from('events')
+      .update({ included: !currentStatus })
+      .eq('id', eventId)
+    fetchEvents()
+    toast.success(`Item ${!currentStatus ? 'included' : 'excluded'} from calculations`)
+  }
 
   // Sorting helpers
   const sortedEvents = useMemo(() => {
@@ -251,6 +261,7 @@ export default function CoursePage() {
               <th>Name</th>
               <th>Date</th>
               <th>Weight (%)</th>
+              <th>Included</th>
               <th>Score</th>
               <th>Percent</th>
               <th></th>
@@ -258,10 +269,24 @@ export default function CoursePage() {
           </thead>
           <tbody>
             {sortedEvents.map(ev => (
-              <tr key={ev.id}>
+              <tr key={ev.id} style={{ opacity: ev.included === false ? 0.6 : 1 }}>
                 <td>{ev.name}</td>
                 <td>{ev.date}</td>
                 <td>{ev.percent}</td>
+                <td>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <input
+                      type="checkbox"
+                      checked={ev.included !== false}
+                      onChange={() => toggleIncluded(ev.id, ev.included !== false)}
+                      disabled={saving}
+                      style={{ transform: 'scale(1.2)' }}
+                    />
+                    <span style={{ fontSize: '0.9rem', color: ev.included !== false ? 'var(--accent)' : 'var(--text-muted)' }}>
+                      {ev.included !== false ? 'Included' : 'Not Included'}
+                    </span>
+                  </label>
+                </td>
                 <td>
                   {editingId === ev.id ? (
                     <>

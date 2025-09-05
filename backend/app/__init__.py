@@ -4,7 +4,7 @@ load_dotenv()
 import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from .services.gpt_client import parse_outline_with_gpt
+from .services.gpt_client import parse_outline_with_gpt, analyze_outline_for_questions, pre_process_outline, ANALYSIS_PROMPT, client
 import psycopg2
 import psycopg2.extras
 import uuid
@@ -28,6 +28,50 @@ def create_app():
     openai_key = os.getenv("OPENAI_API_KEY")
     if not openai_key:
         app.logger.warning("Missing OPENAI_API_KEY: using mock data for parse-outline endpoint.")
+
+    @app.route("/api/debug-analyze", methods=["POST"])
+    def debug_analyze():
+        """Debug endpoint to see what GPT is returning."""
+        outline = request.json.get("outlineText", "")
+        result = analyze_outline_for_questions(outline)
+        
+        # Also get the raw GPT response for debugging
+        if outline.strip():
+            outline_text = pre_process_outline(outline)
+            messages = [
+                {"role": "system", "content": ANALYSIS_PROMPT},
+                {"role": "user", "content": outline_text}
+            ]
+            resp = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=messages,
+                temperature=0.1
+            )
+            raw_response = resp.choices[0].message.content or ""
+        else:
+            raw_response = "No outline provided"
+        
+        return jsonify({
+            "result": result,
+            "raw_gpt_response": raw_response,
+            "outline_preprocessed": outline_text if outline.strip() else ""
+        })
+
+    # --- New conversational parsing endpoints ---
+    @app.route("/api/analyze-outline", methods=["POST"])
+    def analyze_outline():
+        """Analyze outline and return questions if needed."""
+        outline = request.json.get("outlineText", "")
+        result = analyze_outline_for_questions(outline)
+        return jsonify(result)
+
+    @app.route("/api/parse-outline-with-answers", methods=["POST"])
+    def parse_outline_with_answers():
+        """Parse outline with clarifying answers."""
+        outline = request.json.get("outlineText", "")
+        answers = request.json.get("answers", [])
+        items = parse_outline_with_gpt(outline, answers)
+        return jsonify(items)
 
     # --- Existing endpoints ---
     @app.route("/api/parse-outline", methods=["POST"])

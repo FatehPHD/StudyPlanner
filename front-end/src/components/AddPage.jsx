@@ -175,10 +175,11 @@ export default function AddPage() {
                           className="input-field"
                         />
                       </td>
-                      <td>
+                      <td style={{ position: 'relative' }}>
                         <input
                           type="date"
                           value={(() => {
+                            if (itm.date === 'NO_DATE') return ''
                             if (/^\d{4}-\d{2}-\d{2}$/.test(itm.date)) {
                               return itm.date
                             }
@@ -187,8 +188,16 @@ export default function AddPage() {
                           })()}
                           onChange={e => updateItem(i, 'date', e.target.value)}
                           disabled={saving}
-                          className="input-field"
+                          className={`input-field ${!itm.date || itm.date === 'yyyy-mm-dd' || itm.date.trim() === '' || itm.date === 'NO_DATE' ? 'empty-date' : ''}`}
                         />
+                        {(!itm.date || itm.date === 'yyyy-mm-dd' || itm.date.trim() === '' || itm.date === 'NO_DATE') && (
+                          <span 
+                            className="date-help-icon"
+                            title={itm.explanation || "No specific date mentioned in outline - please add manually"}
+                          >
+                            ?
+                          </span>
+                        )}
                       </td>
                       <td>
                         <input

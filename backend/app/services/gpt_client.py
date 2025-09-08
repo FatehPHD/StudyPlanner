@@ -73,15 +73,27 @@ Name, Month DD YYYY, P%
 where:
 
 Name is the assessment title (e.g. "Quiz 1" or "Midterm Exam").
-Month DD YYYY is the exact due date, spelled out (e.g. "March 06 {current_year}").
+Month DD YYYY is the exact due date, spelled out (e.g. "March 06 {current_year}"). If no specific date is mentioned in the outline, use "NO_DATE" and provide an explanation.
 P% is the percentage weight (e.g. "7.5 %").
+EXPLANATION is optional - if you use "NO_DATE", provide a brief explanation of why the date is missing (e.g. "No schedule provided", "TBA by instructor", "Weekly throughout semester").
+
+Format: Name, Month DD YYYY, P%, EXPLANATION
 
 Rules:
 - If a group of assessments (e.g. "Assignments 1-4, best 3 of 4 = 20%") is given, divide the total percentage by the number of counted items (e.g. 20 % / 3 = 6.667 %) and mark the extra item as optional with "(opt)" in its Name.
-- If the outline states "best N of M," exactly M - N items are optional—append "(opt)" to their titles.
-- If the user confirmed dropping the lowest item (e.g., "lowest pre-lab quiz dropped"), mark one item as "(opt)" and divide the percentage among the remaining items.
+- If the outline states "best N of M," exactly M - N items are optional—append "(opt)" to their **Name** field.
+- If the user confirmed dropping the lowest item (e.g., "lowest pre-lab quiz dropped"), mark one item as "(opt)" in the **Name** field and divide the percentage among the remaining items.
+- **CRITICAL:** The "(opt)" marker must go in the **Name** field, NOT in the percentage field.
+- **EXAMPLE:** For "lowest pre-lab quiz dropped" with 5 quizzes worth 2.5% total:
+  - Output: "Pre-Lab Quiz 1, Sep 08 2025, 0.625 %"
+  - Output: "Pre-Lab Quiz 2, Sep 15 2025, 0.625 %"  
+  - Output: "Pre-Lab Quiz 3, Sep 22 2025, 0.625 %"
+  - Output: "Pre-Lab Quiz 4, Sep 29 2025, 0.625 %"
+  - Output: "Pre-Lab Quiz 5 (opt), Oct 06 2025, 0.625 %"
+- **CRITICAL:** All items (including optional ones) should show the recalculated percentage, not the original divided percentage.
 - For recurring assignments (e.g., "assignments due every 2 weeks"), calculate all dates based on the first date provided in the answers.
 - If the user provided a section and first date, use that to calculate all subsequent dates for recurring items.
+- **CRITICAL FOR LABS:** Lab reports are due certain time after the lab date. Always add that amount of time to lab completion dates to get the due date.
 - Do not output any extra text, lists, or punctuation—only one line per assessment in the exact format above.
 - Ensure all percentages sum to 100 %. If they do not, reread the outline and adjust division or optional markings accordingly.
 - CRITICAL: Mark optional items with "(opt)" in the name - these will be set as "not included" by default.
@@ -210,10 +222,95 @@ def parse_outline_with_gpt(outline_text: str, answers: list = None) -> list[dict
     
     for line in lines:
         parts = [p.strip() for p in line.split(",")]
-        if len(parts) == 3:
-            name, date, percent = parts
+        if len(parts) >= 3:
+            name, date, percent = parts[0], parts[1], parts[2]
+            explanation = parts[3] if len(parts) > 3 else ""
+            
             # Check if item is optional (marked with "(opt)")
             included = not ("(opt)" in name.lower() or "(optional)" in name.lower())
-            items.append({"name": name, "date": date, "percent": percent, "included": included})
+            items.append({
+                "name": name, 
+                "date": date, 
+                "percent": percent, 
+                "included": included,
+                "explanation": explanation
+            })
+    
+    # Rechecking step - validate and fix common errors
+    items = recheck_parsed_items(items, outline_text, answers)
     
     return items
+
+def recheck_parsed_items(items: list[dict], outline_text: str, answers: list = None) -> list[dict]:
+    """Recheck parsed items for common errors and fix them."""
+    
+    # Build rechecking prompt
+    items_text = "\n".join([f"{item['name']}, {item['date']}, {item['percent']}" for item in items])
+    
+    recheck_prompt = f"""
+You just parsed a course outline and generated these items:
+
+{items_text}
+
+Please recheck for these common errors and fix them:
+
+1. **Optional items**: If the outline mentions "lowest X dropped" or "best N of M", exactly M-N items should have "(opt)" in their NAME field (not percentage field).
+
+2. **Lab due dates**: Lab reports are due a certain amount of days after completion date. Make sure lab dates are due dates, not completion dates. probably mentioned
+
+3. **Percentage calculations**: If items are optional, divide the total percentage among the remaining counted items. 
+   - Example: 5 quizzes worth 2.5% total, with 1 dropped = 2.5% ÷ 4 counted = 0.625% each
+   - The optional item should still show the calculated percentage (0.625%), not the original (0.5%)
+
+4. **Date format**: Use "Month DD YYYY" format (e.g., "September 08 2025").
+
+5. **Consistency**: Ensure all percentages sum to 100%.
+
+Original outline context:
+{outline_text[:500]}...
+
+User answers:
+{answers if answers else "None"}
+
+If you find any errors, output the corrected items in the same format:
+Name, Month DD YYYY, P%
+
+If everything looks correct, output "NO_CHANGES_NEEDED"
+check it alll with the outline since every outline is different so i cant tell u wat u might have done wrong recheckkk
+
+"""
+
+    messages = [{"role": "user", "content": recheck_prompt}]
+    
+    resp = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=messages,
+        temperature=0.1
+    )
+    
+    recheck_response = resp.choices[0].message.content or ""
+    
+    # If no changes needed, return original items
+    if "NO_CHANGES_NEEDED" in recheck_response:
+        return items
+    
+    # Parse the corrected items
+    corrected_lines = [l.strip() for l in recheck_response.splitlines() if l.strip()]
+    corrected_items = []
+    
+    for line in corrected_lines:
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) >= 3:
+            name, date, percent = parts[0], parts[1], parts[2]
+            explanation = parts[3] if len(parts) > 3 else ""
+            # Check if item is optional (marked with "(opt)")
+            included = not ("(opt)" in name.lower() or "(optional)" in name.lower())
+            corrected_items.append({
+                "name": name, 
+                "date": date, 
+                "percent": percent, 
+                "included": included,
+                "explanation": explanation
+            })
+    
+    return corrected_items if corrected_items else items

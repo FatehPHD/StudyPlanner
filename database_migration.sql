@@ -9,3 +9,4 @@ UPDATE events SET included = TRUE WHERE included IS NULL;
 
 -- Add comment for clarity
 COMMENT ON COLUMN events.included IS 'Whether this event is included in grade calculations (TRUE) or excluded (FALSE)';
+

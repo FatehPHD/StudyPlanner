@@ -134,6 +134,29 @@ textarea:focus-visible {
 /* ===== Forms & Inputs ===== */
 .form-group { margin-bottom: 1rem; }
 .input-field { margin-left: 8px; padding: 4px 8px; font-size: 1rem; }
+.input-field.empty-date { 
+  border: 2px solid #ff4444 !important; 
+  background-color: #ffe6e6 !important; 
+  color: #cc0000 !important; 
+}
+.date-help-icon {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #646cff;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: help;
+  z-index: 10;
+}
 .textarea-input { width: 100%; padding: 8px; margin-bottom: 8px; font-size: 1rem; }
 .btn-submit { padding: 0.6em 1.2em; font-size: 1em; }
 

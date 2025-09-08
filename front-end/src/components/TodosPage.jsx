@@ -71,7 +71,7 @@ export default function TodosPage() {
             type="date"
             value={dueDate}
             onChange={e => setDueDate(e.target.value)}
-            className="input-field"
+            className={`input-field ${!dueDate || dueDate.trim() === '' ? 'empty-date' : ''}`}
             style={{ flex: 1, minWidth: 120 }}
           />
           <button type="submit" className="btn-fun">

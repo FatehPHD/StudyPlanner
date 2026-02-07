@@ -20,6 +20,56 @@ Your job is to analyze the outline and identify SPECIFIC missing information tha
 
 **ANALYZE THE OUTLINE CAREFULLY** and ask targeted questions based on what's actually in the document:
 
+========================
+CRITICAL ADDITIONS (MUST FOLLOW)
+========================
+
+**1) SECTION/DATE DISAMBIGUATION (HIGHEST PRIORITY)**
+- If the outline lists paired/alternate dates for different sections (e.g., "Feb 2 & Feb 4" or "Mon OR Wed"),
+  you MUST ask which section applies *unless* the user already provided their section in the pasted answers.
+- If the user already provided the section (e.g., "Lab B02"), DO NOT ask again. Instead, use it later in parsing.
+
+**2) MISSING SUB-ITEMS / COUNT CONSISTENCY CHECK**
+- If a grading table says a component includes N sub-items (e.g., "Lab Assignments 1–8 = 15%")
+  but the deadlines section only lists fewer than N due dates/items in the pasted text,
+  you MUST ask for the missing sub-item dates OR the missing portion of the outline.
+  (Example: “I only see 3 lab due dates, but grading says Labs 1–8. Can you paste the lab schedule table/pages?”)
+
+**3) WEIGHT SOURCE OF TRUTH CHECK (TO PREVENT WRONG DIVISIONS)**
+- If both (a) a grading breakdown table and (b) a deadlines/schedule section exist:
+  - Treat the grading breakdown table as the authoritative source for weights.
+  - Treat deadlines/schedule sections as authoritative for dates/timing.
+- If the grading table is missing, unclear, or conflicts with other text, ask ONE targeted question:
+  “Which grading breakdown is correct?” and reference the conflicting lines briefly.
+
+**4) NON-GRADED WINDOWS MUST NOT BECOME ITEMS**
+- If you see “discussion open between…”, “engagement window…”, “grace period…”, “late policy…”, or “extension window…”,
+  do NOT ask questions about their dates unless they directly affect a graded item due date.
+- You may ask how the user wants to schedule an “ongoing graded activity” ONLY if it has a weight.
+
+**5) FINAL EXAM PLACEHOLDER RULE**
+- If final exam is registrar-scheduled / TBD:
+  - Ask exactly ONE question:
+    “Do you want me to store this as REGISTRAR_SCHEDULED (TBD) now, or leave it empty and add later?”
+  - Do not ask for the actual date.
+
+**6) RECURRING RULE: ASK ONLY WHEN YOU CAN’T GENERATE**
+- If recurrence is fully specified (first date + frequency + count or date range), do NOT ask.
+- If recurrence is partially specified (e.g., “weekly” but no start date / section), ask only for the missing piece needed.
+
+**7) DROP/OPTIONAL RULE CLARIFICATION**
+- If the outline mentions “best N of M” / “drop lowest”:
+  - Ask: “Do you want me to apply this rule and mark dropped items as optional (opt)?”
+  - Do NOT ask how many are dropped if the outline already states it.
+
+**8) ONE QUESTION PER MISSING FACT**
+- Do not bundle multiple missing facts into one vague question.
+- Keep questions short and answerable (multiple-choice style when possible).
+
+========================
+EXISTING GUIDANCE
+========================
+
 **For multiple sections/labs:**
 - If there are multiple lab sections (e.g., B01-B16), ask which specific section the student is in
 - If there are different schedules for different sections, ask for section-specific information
@@ -52,51 +102,167 @@ Your job is to analyze the outline and identify SPECIFIC missing information tha
 
 **Output format:**
 If questions are needed, respond with:
-```
 QUESTIONS:
-1. [Specific, targeted question based on outline content]
-2. [Another specific question if needed]
-```
-
+1 [Specific, targeted question based on outline content]
+2 [Another specific question if needed]
 If NO questions are needed (everything is clear), respond with:
-```
+
 READY_TO_PARSE
-```
 """
 
 # Prompt for final parsing after questions are answered
 SCHEDULER_PROMPT = f"""
-You are a scheduling assistant. A user has provided a course outline and answered clarifying questions. Now extract each assessment item and output exactly one line per item in the form:
+You are a scheduling assistant. A user has provided a course outline and answered clarifying questions. Your task is to extract every graded assessment item in the course.
 
-Name, Month DD YYYY, P%
+Output exactly ONE line per assessment item in the following format:
 
-where:
+Name, Month DD YYYY, P%, EXPLANATION
 
-Name is the assessment title (e.g. "Quiz 1" or "Midterm Exam").
-Month DD YYYY is the exact due date, spelled out (e.g. "March 06 {current_year}"). If no specific date is mentioned in the outline, use "NO_DATE" and provide an explanation.
-P% is the percentage weight (e.g. "7.5 %").
-EXPLANATION is optional - if you use "NO_DATE", provide a brief explanation of why the date is missing (e.g. "No schedule provided", "TBA by instructor", "Weekly throughout semester").
+Where:
+- Name is the assessment title (e.g. "Quiz 1", "Assignment #2", "Midterm Exam").
+- Month DD YYYY is the due date spelled out (e.g. "March 06 2026").
+- P% is the percentage weight (e.g. "7.5 %").
+- EXPLANATION is OPTIONAL and ONLY used when Month DD YYYY is not an exact calendar date.
 
-Format: Name, Month DD YYYY, P%, EXPLANATION
+If a precise calendar date is not given, use one of the following instead of a date:
+- WEEK_OF <Month DD YYYY>
+- LAB_DEPENDENT
+- REGISTRAR_SCHEDULED
+- NO_DATE
 
-Rules:
-- If a group of assessments (e.g. "Assignments 1-4, best 3 of 4 = 20%") is given, divide the total percentage by the number of counted items (e.g. 20 % / 3 = 6.667 %) and mark the extra item as optional with "(opt)" in its Name.
-- If the outline states "best N of M," exactly M - N items are optional—append "(opt)" to their **Name** field.
-- If the user confirmed dropping the lowest item (e.g., "lowest pre-lab quiz dropped"), mark one item as "(opt)" in the **Name** field and divide the percentage among the remaining items.
-- **CRITICAL:** The "(opt)" marker must go in the **Name** field, NOT in the percentage field.
-- **EXAMPLE:** For "lowest pre-lab quiz dropped" with 5 quizzes worth 2.5% total:
-  - Output: "Pre-Lab Quiz 1, Sep 08 2025, 0.625 %"
-  - Output: "Pre-Lab Quiz 2, Sep 15 2025, 0.625 %"  
-  - Output: "Pre-Lab Quiz 3, Sep 22 2025, 0.625 %"
-  - Output: "Pre-Lab Quiz 4, Sep 29 2025, 0.625 %"
-  - Output: "Pre-Lab Quiz 5 (opt), Oct 06 2025, 0.625 %"
-- **CRITICAL:** All items (including optional ones) should show the recalculated percentage, not the original divided percentage.
-- For recurring assignments (e.g., "assignments due every 2 weeks"), calculate all dates based on the first date provided in the answers.
-- If the user provided a section and first date, use that to calculate all subsequent dates for recurring items.
-- **CRITICAL FOR LABS:** Lab reports are due certain time after the lab date. Always add that amount of time to lab completion dates to get the due date.
-- Do not output any extra text, lists, or punctuation—only one line per assessment in the exact format above.
-- Ensure all percentages sum to 100 %. If they do not, reread the outline and adjust division or optional markings accordingly.
-- CRITICAL: Mark optional items with "(opt)" in the name - these will be set as "not included" by default.
+If NO_DATE is used, include a short explanation (e.g. "TBA by instructor", "No schedule provided").
+
+--------------------
+FORMAT RULES (STRICT)
+--------------------
+- Output ONLY the lines.
+- One assessment per line.
+- Do not merge multiple assessments into one line.
+- Do not reorder fields.
+- Do not add extra text, headings, bullets, or commentary.
+
+--------------------
+NON-GRADED EXCLUSION (CRITICAL)
+--------------------
+- ONLY output items that contribute to the final grade.
+- Do NOT output non-graded items such as:
+  - discussion periods / engagement windows
+  - “open between” availability ranges
+  - grace periods, extension windows, submission instructions
+- Do NOT output any item with 0% unless the outline explicitly states it is graded at 0%.
+
+--------------------
+WEIGHT SOURCE OF TRUTH (CRITICAL)
+--------------------
+- The ONLY authoritative source for percentages/weights is the grading breakdown / final grade determination table.
+- Ignore weights mentioned elsewhere if they conflict or are less explicit.
+- Deadlines/schedule sections provide dates/timing, NOT weights, unless the grading table is missing.
+- If multiple grading tables exist, choose the one that explicitly sums to 100% and is labeled like
+  "Final Grade Determination", "Grading", "Assessment Breakdown", or equivalent.
+
+--------------------
+ATOMIC DEADLINE RULE (CRITICAL)
+--------------------
+- If a graded component has multiple distinct deadlines, you MUST output one line per deadline.
+- Group-level rows are FORBIDDEN if individual deadlines exist.
+- Collapsing multiple deadlines into a single row is NOT allowed.
+
+--------------------
+COMPONENT MAPPING STEP (CRITICAL)
+--------------------
+Before assigning any percentages, do this mentally:
+- Identify each graded component and its total weight from the grading table (e.g., “Course Progress Checks = 15%”).
+- Map each dated sub-item in the deadlines/schedule section to exactly ONE graded component.
+- If a dated item cannot be mapped to a graded component in the table, EXCLUDE it (it is not graded).
+
+--------------------
+COMPONENT ANCHORING (CRITICAL)
+--------------------
+- Sub-items listed in deadlines/schedules (modules, checkpoints, weekly quizzes, lab deliverables, etc.)
+  MUST inherit their weight ONLY from their graded component's total weight.
+- You are FORBIDDEN from assigning a standalone per-item weight (e.g., “Module 0 = 5%”) unless the outline explicitly states that exact per-item weight.
+
+--------------------
+COMPONENT TOTAL RULE (CRITICAL)
+--------------------
+If a component has a total weight and multiple sub-items:
+1) Count ALL sub-items belonging to that component across the ENTIRE outline.
+2) Divide the component's total percentage by the TOTAL sub-item count.
+3) Assign that value to each sub-item,
+   unless the outline explicitly provides different per-item weights.
+
+- Do NOT divide by the number of items on a single date.
+- All sub-items must sum exactly to the component total.
+
+EXAMPLE (MUST FOLLOW):
+If the grading table says "Course Progress Checks = 15%" and there are 6 progress check sub-items,
+each sub-item MUST be 2.5% (15 / 6).
+
+--------------------
+BEST-OF / DROPPED ITEM RULES (CRITICAL)
+--------------------
+- If the outline says "best N of M", output EXACTLY M items.
+- Divide the total percentage by N (the number counted).
+- Mark EXACTLY (M - N) items as "(opt)" in the Name.
+- ALL items (including optional ones) must show the recalculated percentage.
+- Do NOT assign 0% to optional items.
+
+--------------------
+ALTERNATIVE / OR ASSESSMENTS
+--------------------
+- If an assessment can be completed in one of multiple ways (A OR B):
+  - Output one line per alternative.
+  - Each alternative keeps the same divided percentage.
+  - Do NOT choose one.
+  - Do NOT mark alternatives as optional unless explicitly stated.
+
+--------------------
+DATE PRECISION RULES
+--------------------
+- Do NOT infer dates or times.
+- Do NOT convert "week of" into a specific day.
+- If multiple assessments share the same stated date, duplicate that date exactly.
+
+--------------------
+RECURRING ASSESSMENTS
+--------------------
+- Only calculate recurring dates if:
+  - A first date is explicitly provided AND
+  - The recurrence pattern is explicitly defined or confirmed by user answers.
+- Otherwise use WEEK_OF or NO_DATE.
+
+--------------------
+LAB-SPECIFIC RULE
+--------------------
+- If lab reports are due a fixed time after the lab, compute the due date accordingly.
+- Do NOT guess lab schedules.
+
+--------------------
+NO REBALANCING (CRITICAL)
+--------------------
+- You are NOT allowed to change any component's total weight to make math work.
+- If the grading table says a component is X%, it must sum to X% exactly.
+
+--------------------
+PER-COMPONENT VERIFICATION (CRITICAL)
+--------------------
+Before outputting any lines, you MUST verify:
+- For EACH graded component, the sum of its output item percentages equals that component's stated total weight.
+If any component does not match:
+- Correct the mapping/counting/division.
+- Do NOT proceed until every component matches.
+
+--------------------
+OVERALL PERCENT VERIFICATION (CRITICAL)
+--------------------
+- After per-component verification, verify the overall total sums to exactly 100%.
+- If still impossible, append "(CHECK_WEIGHTS)" to the affected Name(s).
+
+--------------------
+OUTPUT ONLY (FINAL)
+--------------------
+Return ONLY the lines in the required format. No extra text.
+
 """
 
 def pre_process_outline(text: str) -> str:
@@ -236,6 +402,9 @@ def parse_outline_with_gpt(outline_text: str, answers: list = None) -> list[dict
                 "explanation": explanation
             })
     
+    # Dedupe before recheck (first parse can also produce dupes)
+    items = _dedupe_items(items)
+    
     # Rechecking step - validate and fix common errors
     items = recheck_parsed_items(items, outline_text, answers)
     
@@ -275,8 +444,11 @@ User answers:
 If you find any errors, output the corrected items in the same format:
 Name, Month DD YYYY, P%
 
-If everything looks correct, output "NO_CHANGES_NEEDED"
-check it alll with the outline since every outline is different so i cant tell u wat u might have done wrong recheckkk
+CRITICAL: Output EXACTLY one line per assessment item. NO duplicates. NO repeated items.
+Output ONLY the item lines (Name, Month DD YYYY, P%)—no headers, no numbers, no extra text.
+If you must correct, replace the list—do not append or duplicate.
+
+If everything looks correct, output exactly: NO_CHANGES_NEEDED
 
 """
 
@@ -290,27 +462,53 @@ check it alll with the outline since every outline is different so i cant tell u
     
     recheck_response = resp.choices[0].message.content or ""
     
-    # If no changes needed, return original items
-    if "NO_CHANGES_NEEDED" in recheck_response:
-        return items
+    # If no changes needed, return original items (deduped)
+    if "NO_CHANGES_NEEDED" in recheck_response.upper():
+        return _dedupe_items(items)
     
-    # Parse the corrected items
-    corrected_lines = [l.strip() for l in recheck_response.splitlines() if l.strip()]
+    # Parse the corrected items - only lines that look like "Name, Month DD YYYY, P%"
+    # Skip numbered lines (1. 2. 3.) and header-ish lines
+    corrected_lines = []
+    for l in recheck_response.splitlines():
+        line = l.strip()
+        if not line:
+            continue
+        # Skip lines that are clearly not items (numbers, headers, etc.)
+        if re.match(r'^\d+[\.\)]\s', line):  # "1. " or "1) "
+            line = re.sub(r'^\d+[\.\)]\s*', '', line)
+        if line.upper() in ('NO_CHANGES_NEEDED', 'NO CHANGES NEEDED'):
+            return _dedupe_items(items)
+        if not re.search(r'[A-Za-z]', line) or ',' not in line:  # Must have letters and comma
+            continue
+        corrected_lines.append(line)
+    
     corrected_items = []
-    
     for line in corrected_lines:
         parts = [p.strip() for p in line.split(",")]
         if len(parts) >= 3:
             name, date, percent = parts[0], parts[1], parts[2]
             explanation = parts[3] if len(parts) > 3 else ""
-            # Check if item is optional (marked with "(opt)")
             included = not ("(opt)" in name.lower() or "(optional)" in name.lower())
             corrected_items.append({
-                "name": name, 
-                "date": date, 
-                "percent": percent, 
+                "name": name,
+                "date": date,
+                "percent": percent,
                 "included": included,
                 "explanation": explanation
             })
     
-    return corrected_items if corrected_items else items
+    result = corrected_items if corrected_items else items
+    return _dedupe_items(result)
+
+
+def _dedupe_items(items: list[dict]) -> list[dict]:
+    """Remove duplicate items by (name, date, percent). Keep first occurrence."""
+    seen = set()
+    out = []
+    for it in items:
+        key = (str(it.get('name', '')).strip(), str(it.get('date', '')).strip(), str(it.get('percent', '')).strip())
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(it)
+    return out

@@ -25,6 +25,11 @@ export default function TodosPage() {
     onSuccess: () => {
       toast.success('To-do added!')
       qc.invalidateQueries({ queryKey: ['todos', user.id] })
+      setTitle('')
+      setDueDate('')
+    },
+    onError: (err) => {
+      toast.error(err?.message || 'Failed to add to-do')
     }
   })
   // Toggle a to-do's completion
@@ -50,8 +55,6 @@ export default function TodosPage() {
       return
     }
     addMutation.mutate({ title, due_date: dueDate })
-    setTitle('')
-    setDueDate('')
   }
   if (isLoading) return <p>Loading to-dos…</p>
   return (
@@ -71,7 +74,7 @@ export default function TodosPage() {
             type="date"
             value={dueDate}
             onChange={e => setDueDate(e.target.value)}
-            className={`input-field ${!dueDate || dueDate.trim() === '' ? 'empty-date' : ''}`}
+            className="input-field"
             style={{ flex: 1, minWidth: 120 }}
           />
           <button type="submit" className="btn-fun">

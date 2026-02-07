@@ -60,7 +60,7 @@ export default function Layout({ children }) {
               <span style={{ fontSize: 18, lineHeight: 1 }}>⚙️</span> Admin
             </NavLink>
           )}
-          <button onClick={toggleTheme} className="btn-link" aria-label="Toggle theme">
+          <button onClick={toggleTheme} className="btn-link btn-theme-toggle" aria-label="Toggle theme">
             {theme === 'light' ? '🌙 Dark Mode' : '☀️ Light Mode'}
           </button>
           {user && location.pathname !== '/login' && (

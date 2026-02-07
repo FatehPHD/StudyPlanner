@@ -159,7 +159,10 @@ export default function CalendarPage() {
       .insert(insertData)
       .select('id, name, description, start_time, end_time, color')
       .single()
-    if (error) return toast.error('Create failed')
+    if (error) {
+      console.error('Event create error:', error)
+      return toast.error(`Create failed: ${error.message}`)
+    }
     setEvents(evts => [
       {
         id: data.id,

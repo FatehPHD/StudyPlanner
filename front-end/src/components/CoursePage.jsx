@@ -272,7 +272,7 @@ export default function CoursePage() {
               <tr key={ev.id} style={{ opacity: ev.included === false ? 0.6 : 1 }}>
                 <td>{ev.name}</td>
                 <td>{ev.date}</td>
-                <td>{ev.percent}</td>
+                <td>{ev.percent != null ? `${ev.percent}%` : '—'}</td>
                 <td>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <input
@@ -315,7 +315,7 @@ export default function CoursePage() {
                   )}
                 </td>
                 <td>
-                  {ev.score_total ? ((ev.score_received / ev.score_total) * 100).toFixed(2) : '-'}%
+                  {ev.score_total ? ((ev.score_received / ev.score_total) * 100).toFixed(2) + '%' : '—'}
                 </td>
                 <td>
                   {editingId === ev.id ? (

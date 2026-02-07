@@ -123,12 +123,18 @@ CREATE TABLE courses (
 );
 
 -- Create events table
+-- Note: This table supports both course-related events (with course_id, date, percent, scores) 
+-- and personal calendar events (with start_time, end_time, description, color)
 CREATE TABLE events (
     id SERIAL PRIMARY KEY,
     course_id INTEGER REFERENCES courses(id) ON DELETE CASCADE,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
-    date DATE NOT NULL,
+    date DATE,
+    start_time TIMESTAMP WITH TIME ZONE,
+    end_time TIMESTAMP WITH TIME ZONE,
+    description TEXT,
+    color TEXT,
     percent DECIMAL(5,2),
     score_received DECIMAL(5,2),
     score_total DECIMAL(5,2),
@@ -141,6 +147,7 @@ CREATE TABLE todos (
     id SERIAL PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
+    due_date DATE,
     completed BOOLEAN DEFAULT FALSE,
     inserted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

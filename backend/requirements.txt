@@ -4,6 +4,6 @@ flask-cors
 openai
 python-dotenv
 python-docx
-pdfminer.six
+pdfplumber
 psycopg2-binary
 # supabase (remove if not used in backend)

@@ -95,12 +95,15 @@ export default function AddPage() {
       if (isNaN(start.getTime()) || isNaN(end.getTime())) {
         throw new Error(`Row ${idx + 1} has an invalid date value: "${dateStr}"`)
       }
+      // Parse percent: DB expects numeric, strip "2.5 %" -> 2.5
+      const percentVal = (item.percent || '').toString().replace(/%/g, '').trim()
+      const percentNum = percentVal === '' ? null : parseFloat(percentVal)
       return {
         course_id,
         user_id: user.id,
         name: item.name,
         date: dateStr,
-        percent: item.percent,
+        percent: isNaN(percentNum) ? null : percentNum,
         included: item.included !== false, // Default to true if not specified
         start_time: start.toISOString(),
         end_time: end.toISOString()
@@ -111,7 +114,8 @@ export default function AddPage() {
       .insert(toInsert)
     setSaving(false)
     if (evErr) {
-      toast.error('Failed to save events')
+      console.error('Events insert error:', evErr)
+      toast.error(`Failed to save events: ${evErr.message}`)
       return
     }
     toast.success('Course saved!')

@@ -26,7 +26,7 @@ export default function PlannerForm({
       formData.append('file', file)
       // Call backend endpoint to extract outline
       const res = await axios.post(
-        'http://localhost:5000/api/extract-outline',
+        'http://localhost:5001/api/extract-outline',
         formData,
         { headers: { 'Content-Type': 'multipart/form-data' } }
       )

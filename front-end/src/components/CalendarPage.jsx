@@ -117,6 +117,56 @@ export default function CalendarPage() {
     toast.success('Duration updated!')
   }
 
+  // Format date for ICS (UTC)
+  function toICSDate(d) {
+    const date = new Date(d)
+    const pad = n => String(n).padStart(2, '0')
+    const y = date.getUTCFullYear()
+    const m = pad(date.getUTCMonth() + 1)
+    const day = pad(date.getUTCDate())
+    const h = pad(date.getUTCHours())
+    const min = pad(date.getUTCMinutes())
+    const s = pad(date.getUTCSeconds())
+    return `${y}${m}${day}T${h}${min}${s}Z`
+  }
+
+  // Download calendar as .ics file (import into Google/Apple/Outlook)
+  function handleDownloadCalendar() {
+    if (events.length === 0) {
+      toast.error('No events to download')
+      return
+    }
+    const lines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Study Planner//EN',
+      'CALSCALE:GREGORIAN',
+    ]
+    events.forEach((evt, i) => {
+      const start = evt.start instanceof Date ? evt.start : new Date(evt.start)
+      const end = evt.end instanceof Date ? evt.end : new Date(evt.end)
+      const title = (evt.title || 'Event').replace(/\n/g, ' ').replace(/[,;\\]/g, ' ')
+      const uid = `studyplanner-${evt.id}-${i}@studyplanner`
+      lines.push('BEGIN:VEVENT')
+      lines.push(`UID:${uid}`)
+      lines.push(`DTSTAMP:${toICSDate(new Date())}`)
+      lines.push(`DTSTART:${toICSDate(start)}`)
+      lines.push(`DTEND:${toICSDate(end)}`)
+      lines.push(`SUMMARY:${title}`)
+      lines.push('END:VEVENT')
+    })
+    lines.push('END:VCALENDAR')
+    const ics = lines.join('\r\n')
+    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `study-planner-calendar-${format(new Date(), 'yyyy-MM-dd')}.ics`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success('Calendar downloaded! Import the .ics file into your calendar app.')
+  }
+
   // Open event creation form for empty slot
   function handleSelectSlot(slot) {
     setSlotInfo(slot)
@@ -183,7 +233,17 @@ export default function CalendarPage() {
   return (
     <div className="container">
       <div className="card" style={{ maxWidth: 900, margin: '0 auto' }}>
-        <h1 className="playful-heading">Calendar</h1>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 8 }}>
+          <h1 className="playful-heading" style={{ margin: 0 }}>Calendar</h1>
+          <button
+            type="button"
+            onClick={handleDownloadCalendar}
+            className="btn-primary"
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <span aria-hidden>📥</span> Download calendar
+          </button>
+        </div>
         <DnDCalendar
           localizer={localizer}
           events={events}

@@ -2,6 +2,7 @@
 from dotenv import load_dotenv
 load_dotenv()
 import os
+import logging
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from .services.gpt_client import parse_outline_with_gpt, analyze_outline_for_questions, pre_process_outline, ANALYSIS_PROMPT, client
@@ -233,16 +234,21 @@ def create_app():
                     cur.execute("SELECT * FROM profiles WHERE user_id = %s", (user_id,))
                     profile = cur.fetchone()
         except Exception as e:
+            app.logger.exception("Profile fetch failed")
             return jsonify({"error": str(e)}), 500
         if not profile:
             return jsonify({"error": "Profile not found"}), 404
-        # Convert to plain dict with JSON-serializable types (UUID, datetime)
-        out = dict(profile)
-        for k, v in list(out.items()):
-            if hasattr(v, 'hex'):  # UUID
+        # Convert to plain dict with JSON-serializable types (UUID, datetime, etc.)
+        out = {}
+        for k, v in dict(profile).items():
+            if v is None:
+                out[k] = None
+            elif hasattr(v, 'hex'):  # UUID
                 out[k] = str(v)
-            elif hasattr(v, 'isoformat'):  # datetime
-                out[k] = v.isoformat() if v else None
+            elif hasattr(v, 'isoformat'):  # date/datetime
+                out[k] = v.isoformat()
+            else:
+                out[k] = v
         return jsonify(out)
 
     return app

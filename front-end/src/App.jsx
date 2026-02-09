@@ -12,6 +12,7 @@ import TodosPage from './components/TodosPage.jsx'
 import AdminDashboard from './components/AdminDashboard.jsx'
 import { useAuth } from './context/AuthContext.jsx'
 import { useEffect, useState } from 'react'
+import { API_BASE_URL } from './lib/apiConfig.js'
 
 // Fallback UI for error boundaries
 function ErrorFallback({ error, resetErrorBoundary }) {
@@ -49,7 +50,7 @@ function AdminRoute({ children }) {
       return
     }
     async function checkAdmin() {
-      const res = await fetch(`/api/profiles/${user.id}`)
+      const res = await fetch(`${API_BASE_URL}/api/profiles/${user.id}`)
       const profile = await res.json()
       setIsAdmin(profile.is_admin)
       setLoading(false)

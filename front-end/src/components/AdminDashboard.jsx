@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useNavigate } from 'react-router-dom'
+import { API_BASE_URL } from '../lib/apiConfig.js'
 
 export default function AdminDashboard() {
   const { user } = useAuth()
@@ -30,7 +31,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (!user) return;
     async function checkAdmin() {
-      const res = await fetch(`/api/profiles/${user.id}`)
+      const res = await fetch(`${API_BASE_URL}/api/profiles/${user.id}`)
       const profile = await res.json()
       setIsAdmin(profile.is_admin)
       setLoading(false)
@@ -44,7 +45,7 @@ export default function AdminDashboard() {
     if (!user || tab !== 'users' || !isAdmin) return
     setUsersLoading(true)
     setUsersError(null)
-    fetch('/api/admin/users', {
+    fetch(`${API_BASE_URL}/api/admin/users`, {
       headers: { 'X-User-Id': user.id }
     })
       .then(res => res.json())
@@ -63,7 +64,7 @@ export default function AdminDashboard() {
     if (!user || tab !== 'courses' || !isAdmin) return
     setCoursesLoading(true)
     setCoursesError(null)
-    fetch('/api/admin/courses', {
+    fetch(`${API_BASE_URL}/api/admin/courses`, {
       headers: { 'X-User-Id': user.id }
     })
       .then(res => res.json())
@@ -82,7 +83,7 @@ export default function AdminDashboard() {
     if (!user || tab !== 'analytics' || !isAdmin) return
     setAnalyticsLoading(true)
     setAnalyticsError(null)
-    fetch('/api/admin/analytics', {
+    fetch(`${API_BASE_URL}/api/admin/analytics`, {
       headers: { 'X-User-Id': user.id }
     })
       .then(res => res.json())
@@ -99,13 +100,13 @@ export default function AdminDashboard() {
   // Toggle admin status for a user
   async function handleToggleAdmin(userId, current) {
     if (!user) return;
-    await fetch(`/api/admin/users/${userId}`, {
+    await fetch(`${API_BASE_URL}/api/admin/users/${userId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'X-User-Id': user.id },
       body: JSON.stringify({ is_admin: !current })
     })
     setUsersLoading(true)
-    const res = await fetch('/api/admin/users', { headers: { 'X-User-Id': user.id } })
+    const res = await fetch(`${API_BASE_URL}/api/admin/users`, { headers: { 'X-User-Id': user.id } })
     setUsers(await res.json())
     setUsersLoading(false)
   }
@@ -114,12 +115,12 @@ export default function AdminDashboard() {
   async function handleDeleteUser(userId) {
     if (!user) return;
     if (!window.confirm('Are you sure you want to delete this user?')) return
-    await fetch(`/api/admin/users/${userId}`, {
+    await fetch(`${API_BASE_URL}/api/admin/users/${userId}`, {
       method: 'DELETE',
       headers: { 'X-User-Id': user.id }
     })
     setUsersLoading(true)
-    const res = await fetch('/api/admin/users', { headers: { 'X-User-Id': user.id } })
+    const res = await fetch(`${API_BASE_URL}/api/admin/users`, { headers: { 'X-User-Id': user.id } })
     setUsers(await res.json())
     setUsersLoading(false)
   }
@@ -131,7 +132,7 @@ export default function AdminDashboard() {
   }
   async function saveEditCourse(courseId) {
     if (!user) return;
-    await fetch(`/api/admin/courses/${courseId}`, {
+    await fetch(`${API_BASE_URL}/api/admin/courses/${courseId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'X-User-Id': user.id },
       body: JSON.stringify({ title: editingCourseTitle })
@@ -139,7 +140,7 @@ export default function AdminDashboard() {
     setEditingCourseId(null)
     setEditingCourseTitle('')
     setCoursesLoading(true)
-    const res = await fetch('/api/admin/courses', { headers: { 'X-User-Id': user.id } })
+    const res = await fetch(`${API_BASE_URL}/api/admin/courses`, { headers: { 'X-User-Id': user.id } })
     setCourses(await res.json())
     setCoursesLoading(false)
   }
@@ -151,12 +152,12 @@ export default function AdminDashboard() {
   async function handleDeleteCourse(courseId) {
     if (!user) return;
     if (!window.confirm('Are you sure you want to delete this course?')) return
-    await fetch(`/api/admin/courses/${courseId}`, {
+    await fetch(`${API_BASE_URL}/api/admin/courses/${courseId}`, {
       method: 'DELETE',
       headers: { 'X-User-Id': user.id }
     })
     setCoursesLoading(true)
-    const res = await fetch('/api/admin/courses', { headers: { 'X-User-Id': user.id } })
+    const res = await fetch(`${API_BASE_URL}/api/admin/courses`, { headers: { 'X-User-Id': user.id } })
     setCourses(await res.json())
     setCoursesLoading(false)
   }

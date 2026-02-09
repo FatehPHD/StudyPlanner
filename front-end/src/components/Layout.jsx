@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useTheme }  from '../context/ThemeContext.jsx'
 import { useAuth }   from '../context/AuthContext.jsx'
+import { API_BASE_URL } from '../lib/apiConfig.js'
 import '../App.css'
 
 export default function Layout({ children }) {
@@ -15,7 +16,7 @@ export default function Layout({ children }) {
   useEffect(() => {
     async function checkAdmin() {
       if (!user) return setIsAdmin(false)
-      const res = await fetch(`/api/profiles/${user.id}`)
+      const res = await fetch(`${API_BASE_URL}/api/profiles/${user.id}`)
       const profile = await res.json()
       setIsAdmin(profile.is_admin)
     }

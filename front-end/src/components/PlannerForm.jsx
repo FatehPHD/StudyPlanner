@@ -4,6 +4,8 @@ import { parseOutline, analyzeOutline, parseOutlineWithAnswers } from '../servic
 import toast from 'react-hot-toast'
 import axios from 'axios'
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001'
+
 export default function PlannerForm({
   outlineText,
   setOutlineText,
@@ -26,7 +28,7 @@ export default function PlannerForm({
       formData.append('file', file)
       // Call backend endpoint to extract outline
       const res = await axios.post(
-        'http://localhost:5001/api/extract-outline',
+        `${API_BASE_URL}/api/extract-outline`,
         formData,
         { headers: { 'Content-Type': 'multipart/form-data' } }
       )

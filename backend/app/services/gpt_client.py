@@ -116,13 +116,14 @@ You are a scheduling assistant. A user has provided a course outline and answere
 
 Output exactly ONE line per assessment item in the following format:
 
-Name, Month DD YYYY, P%, EXPLANATION
+Name, Month DD YYYY, P%, EXPLANATION, Optional
 
 Where:
-- Name is the assessment title (e.g. "Quiz 1", "Assignment #2", "Midterm Exam").
+- Name is the assessment title (e.g. "Quiz 1", "Assignment #2", "Midterm Exam"). Do NOT add "(opt)" or "(optional)" to the name.
 - Month DD YYYY is the due date spelled out (e.g. "March 06 2026").
 - P% is the percentage weight (e.g. "7.5 %").
-- EXPLANATION is OPTIONAL and ONLY used when Month DD YYYY is not an exact calendar date.
+- EXPLANATION is ONLY used when Month DD YYYY is not an exact calendar date. Use empty string if not needed.
+- Optional is true or false (boolean). Use true for items that are dropped/not counted (e.g. "best N of M" or "lowest X dropped"); use false otherwise.
 
 If a precise calendar date is not given, use one of the following instead of a date:
 - WEEK_OF <Month DD YYYY>
@@ -201,11 +202,11 @@ each sub-item MUST be 2.5% (15 / 6).
 --------------------
 BEST-OF / DROPPED ITEM RULES (CRITICAL)
 --------------------
-- If the outline says "best N of M", output EXACTLY M items.
+- If the outline says "best N of M" or "lowest X dropped", output EXACTLY M items.
 - Divide the total percentage by N (the number counted).
-- Mark EXACTLY (M - N) items as "(opt)" in the Name.
-- ALL items (including optional ones) must show the recalculated percentage.
-- Do NOT assign 0% to optional items.
+- For the (M - N) items that are dropped/not counted, set Optional: true. Set Optional: false for the N items that count.
+- Put Optional: true on the LAST (M - N) items of that component (e.g. if 5 quizzes, 1 dropped, the 5th quiz gets Optional: true).
+- ALL items (including optional ones) must show the recalculated percentage. Do NOT put "(opt)" in the Name.
 
 --------------------
 ALTERNATIVE / OR ASSESSMENTS
@@ -391,13 +392,13 @@ def parse_outline_with_gpt(outline_text: str, answers: list = None) -> list[dict
         if len(parts) >= 3:
             name, date, percent = parts[0], parts[1], parts[2]
             explanation = parts[3] if len(parts) > 3 else ""
-            
-            # Check if item is optional (marked with "(opt)")
-            included = not ("(opt)" in name.lower() or "(optional)" in name.lower())
+            # Optional is 5th field (true/false). Fallback: (opt) in name for backward compat
+            opt_val = parts[4].lower() if len(parts) > 4 else ""
+            included = not (opt_val == "true" or "(opt)" in name.lower() or "(optional)" in name.lower())
             items.append({
-                "name": name, 
-                "date": date, 
-                "percent": percent, 
+                "name": name,
+                "date": date,
+                "percent": percent,
                 "included": included,
                 "explanation": explanation
             })
@@ -413,8 +414,8 @@ def parse_outline_with_gpt(outline_text: str, answers: list = None) -> list[dict
 def recheck_parsed_items(items: list[dict], outline_text: str, answers: list = None) -> list[dict]:
     """Recheck parsed items for common errors and fix them."""
     
-    # Build rechecking prompt
-    items_text = "\n".join([f"{item['name']}, {item['date']}, {item['percent']}" for item in items])
+    # Build rechecking prompt (same format as parse output)
+    items_text = "\n".join([f"{item['name']}, {item['date']}, {item['percent']}, {item.get('explanation', '')}, {'true' if not item.get('included', True) else 'false'}" for item in items])
     
     recheck_prompt = f"""
 You just parsed a course outline and generated these items:
@@ -423,7 +424,7 @@ You just parsed a course outline and generated these items:
 
 Please recheck for these common errors and fix them:
 
-1. **Optional items**: If the outline mentions "lowest X dropped" or "best N of M", exactly M-N items should have "(opt)" in their NAME field (not percentage field).
+1. **Optional items**: If the outline mentions "lowest X dropped" or "best N of M", exactly M-N items should have Optional: true (the last M-N items of that component). Do NOT put "(opt)" in the Name.
 
 2. **Lab due dates**: Lab reports are due a certain amount of days after completion date. Make sure lab dates are due dates, not completion dates. probably mentioned
 
@@ -442,10 +443,12 @@ User answers:
 {answers if answers else "None"}
 
 If you find any errors, output the corrected items in the same format:
-Name, Month DD YYYY, P%
+Name, Month DD YYYY, P%, EXPLANATION, Optional
+
+(Optional is true or false. No "(opt)" in Name.)
 
 CRITICAL: Output EXACTLY one line per assessment item. NO duplicates. NO repeated items.
-Output ONLY the item lines (Name, Month DD YYYY, P%)—no headers, no numbers, no extra text.
+Output ONLY the item lines—no headers, no numbers, no extra text.
 If you must correct, replace the list—do not append or duplicate.
 
 If everything looks correct, output exactly: NO_CHANGES_NEEDED
@@ -488,7 +491,8 @@ If everything looks correct, output exactly: NO_CHANGES_NEEDED
         if len(parts) >= 3:
             name, date, percent = parts[0], parts[1], parts[2]
             explanation = parts[3] if len(parts) > 3 else ""
-            included = not ("(opt)" in name.lower() or "(optional)" in name.lower())
+            opt_val = parts[4].lower() if len(parts) > 4 else ""
+            included = not (opt_val == "true" or "(opt)" in name.lower() or "(optional)" in name.lower())
             corrected_items.append({
                 "name": name,
                 "date": date,

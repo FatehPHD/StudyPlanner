@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { supabase } from '../lib/supabaseClient.js'
+import { getOptionalGroupToggleable, getComponentBase } from '../lib/gradeUtils.js'
 import toast from 'react-hot-toast'
 import {
   Chart as ChartJS,
@@ -32,6 +33,8 @@ export default function CoursePage() {
   const [events, setEvents] = useState([])
   const [editingId, setEditingId] = useState(null)
   const [tempScores, setTempScores] = useState({ received: '', total: '' })
+  const [editingDateId, setEditingDateId] = useState(null)
+  const [tempDate, setTempDate] = useState('')
   const [saving, setSaving] = useState(false)
   const [sortKey, setSortKey] = useState(null)
   const [sortAsc, setSortAsc] = useState(true)
@@ -41,7 +44,7 @@ export default function CoursePage() {
   useEffect(() => {
     supabase
       .from('courses')
-      .select('title, color')
+      .select('title, color, optional_groups')
       .eq('id', id)
       .single()
       .then(({ data }) => setCourse(data))
@@ -187,25 +190,120 @@ export default function CoursePage() {
     fetchEvents()
     toast.success('Score cleared')
   }
-  
-  // Toggle included status
-  async function toggleIncluded(eventId, currentStatus) {
+
+  // Date editing (for events without dates)
+  function startEditDate(ev) {
+    setEditingDateId(ev.id)
+    setTempDate(ev.date || '')
+  }
+  function cancelEditDate() {
+    setEditingDateId(null)
+    setTempDate('')
+  }
+  async function saveDate(eventId) {
+    const dateStr = tempDate.trim()
+    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      toast.error('Please enter a valid date (YYYY-MM-DD)')
+      return
+    }
+    const start = new Date(`${dateStr}T23:00:00`)
+    const end = new Date(`${dateStr}T23:30:00`)
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      toast.error('Invalid date')
+      return
+    }
+    setSaving(true)
     await supabase
       .from('events')
-      .update({ included: !currentStatus })
+      .update({
+        date: dateStr,
+        start_time: start.toISOString(),
+        end_time: end.toISOString()
+      })
       .eq('id', eventId)
+    setSaving(false)
+    cancelEditDate()
     fetchEvents()
-    toast.success(`Item ${!currentStatus ? 'included' : 'excluded'} from calculations`)
+    toast.success('Date saved!')
   }
+
+  // Toggle included status (with "best X of Y" auto-uncheck when exceeding max)
+  async function toggleIncluded(eventId, currentStatus) {
+    const optionalGroups = course?.optional_groups || {}
+    const ev = events.find(e => e.id === eventId)
+    if (!ev) return
+
+    const base = getComponentBase(ev.name)
+    const maxAllowed = optionalGroups[base]
+
+    if (currentStatus) {
+      // Unchecking: always allow
+      await supabase.from('events').update({ included: false }).eq('id', eventId)
+      fetchEvents()
+      toast.success('Item excluded from calculations')
+      return
+    }
+
+    // Checking: may need to auto-uncheck another if we'd exceed max
+    if (maxAllowed != null) {
+      const groupEvents = events.filter(e => getComponentBase(e.name) === base)
+      const includedEvents = groupEvents.filter(e => e.included !== false)
+      if (includedEvents.length >= maxAllowed) {
+        // Pick one to uncheck: no score -> random, all have score -> lowest
+        const withScores = includedEvents.filter(e => e.score_received != null && e.score_total > 0)
+        const withoutScores = includedEvents.filter(e => !(e.score_received != null && e.score_total > 0))
+        let toUncheck
+        if (withoutScores.length > 0) {
+          toUncheck = withoutScores[Math.floor(Math.random() * withoutScores.length)]
+        } else {
+          const byPct = [...withScores].sort((a, b) => {
+            const pctA = (a.score_received / a.score_total) * 100
+            const pctB = (b.score_received / b.score_total) * 100
+            return pctA - pctB
+          })
+          const lowest = byPct[0]
+          const sameLowest = withScores.filter(
+            e => Math.abs((e.score_received / e.score_total) * 100 - (lowest.score_received / lowest.score_total) * 100) < 0.01
+          )
+          toUncheck = sameLowest[Math.floor(Math.random() * sameLowest.length)]
+        }
+        await supabase.from('events').update({ included: false }).eq('id', toUncheck.id)
+      }
+    }
+
+    await supabase.from('events').update({ included: true }).eq('id', eventId)
+    fetchEvents()
+    toast.success('Item included in calculations')
+  }
+
+  // Only items in optional groups (e.g. "best N of M") can have checkbox toggled
+  const toggleableEventIds = useMemo(
+    () => getOptionalGroupToggleable(events, true),
+    [events]
+  )
+
+  // Groups with fewer than X included (for warning banner)
+  const underMinGroups = useMemo(() => {
+    const optionalGroups = course?.optional_groups || {}
+    const list = []
+    for (const [base, maxAllowed] of Object.entries(optionalGroups)) {
+      const groupEvents = events.filter(e => getComponentBase(e.name) === base)
+      const includedCount = groupEvents.filter(e => e.included !== false).length
+      if (includedCount < maxAllowed) {
+        list.push({ base, current: includedCount, required: maxAllowed })
+      }
+    }
+    return list
+  }, [events, course?.optional_groups])
 
   // Sorting helpers
   const sortedEvents = useMemo(() => {
     if (!sortKey) return events
     return [...events].sort((a, b) => {
       if (sortKey === 'date') {
-        return sortAsc
-          ? new Date(a.date) - new Date(b.date)
-          : new Date(b.date) - new Date(a.date)
+        const aVal = a.date ? new Date(a.date).getTime() : Infinity
+        const bVal = b.date ? new Date(b.date).getTime() : Infinity
+        return sortAsc ? aVal - bVal : bVal - aVal
       }
       if (sortKey === 'percent') {
         return sortAsc
@@ -250,6 +348,31 @@ export default function CoursePage() {
         <h3 className="score-summary">
           Sitting: {normalizedGrade.toFixed(2)}% for the {totalWeight.toFixed(2)}%
         </h3>
+        {Object.keys(course?.optional_groups || {}).length > 0 && (
+          <p style={{ fontSize: '0.9rem', fontStyle: 'italic', marginTop: '0.5rem', color: 'var(--text-muted)' }}>
+            💡 <strong>Optional groups:</strong> To switch which items are included, uncheck first, then check the other. Otherwise one will be randomly unchecked.
+          </p>
+        )}
+        {underMinGroups.length > 0 && (
+          <div
+            style={{
+              padding: '1rem 1.25rem',
+              marginTop: '1rem',
+              marginBottom: '1rem',
+              background: 'hsla(0, 70%, 50%, 0.15)',
+              border: '2px solid hsl(0, 70%, 45%)',
+              borderRadius: '8px',
+              color: 'var(--text)'
+            }}
+          >
+            <strong>⚠️ Warning:</strong> You need to include at least the required number of items for each group:
+            {underMinGroups.map(({ base, current, required }) => (
+              <div key={base} style={{ marginTop: '0.5rem' }}>
+                • <strong>{base}</strong>: {current} of {required} required (check {required - current} more)
+              </div>
+            ))}
+          </div>
+        )}
         {/* Sparkline chart */}
         <div className="chart-container" style={{ height: '150px' }}>
           <Line data={sparkData} options={sparkOptions} />
@@ -271,7 +394,61 @@ export default function CoursePage() {
             {sortedEvents.map(ev => (
               <tr key={ev.id} style={{ opacity: ev.included === false ? 0.6 : 1 }}>
                 <td>{ev.name}</td>
-                <td>{ev.date}</td>
+                <td>
+                  {editingDateId === ev.id ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <input
+                        type="date"
+                        value={tempDate}
+                        onChange={e => setTempDate(e.target.value)}
+                        className="input-field"
+                        style={{ width: 140 }}
+                        disabled={saving}
+                      />
+                      <button
+                        onClick={() => saveDate(ev.id)}
+                        className="btn-fun"
+                        style={{ padding: '0.2em 0.6em', fontSize: '0.9em' }}
+                        disabled={saving}
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={cancelEditDate}
+                        className="btn-fun"
+                        style={{ padding: '0.2em 0.6em', fontSize: '0.9em', background: 'var(--surface-alt)', color: 'var(--accent2)' }}
+                        disabled={saving}
+                      >
+                        Cancel
+                      </button>
+                    </span>
+                  ) : (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {ev.date ? (
+                        <>
+                          {ev.date}
+                          <button
+                            onClick={() => startEditDate(ev)}
+                            className="btn-fun"
+                            style={{ padding: '0.1em 0.4em', fontSize: '0.8em', background: 'transparent', color: 'var(--accent)' }}
+                            title="Change date"
+                          >
+                            Edit
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => startEditDate(ev)}
+                          className="btn-fun"
+                          style={{ padding: '0.2em 0.6em', fontSize: '0.9em' }}
+                          title="Add date"
+                        >
+                          Add date
+                        </button>
+                      )}
+                    </span>
+                  )}
+                </td>
                 <td>{ev.percent != null ? `${ev.percent}%` : '—'}</td>
                 <td>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -279,8 +456,9 @@ export default function CoursePage() {
                       type="checkbox"
                       checked={ev.included !== false}
                       onChange={() => toggleIncluded(ev.id, ev.included !== false)}
-                      disabled={saving}
+                      disabled={saving || !toggleableEventIds.has(ev.id)}
                       style={{ transform: 'scale(1.2)' }}
+                      title={!toggleableEventIds.has(ev.id) ? 'Only optional groups can be toggled' : ''}
                     />
                     <span style={{ fontSize: '0.9rem', color: ev.included !== false ? 'var(--accent)' : 'var(--text-muted)' }}>
                       {ev.included !== false ? 'Included' : 'Not Included'}

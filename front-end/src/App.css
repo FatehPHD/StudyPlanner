@@ -287,3 +287,7 @@ input[type="checkbox"].fun-checkbox {
 .rbc-toolbar { position: relative !important; z-index: 1000 !important; }
 .rbc-toolbar button { pointer-events: auto !important; }
 .rbc-calendar { position: relative !important; z-index: 1000 !important; }
+
+/* Month view: ensure cells have space for events + "+X more" row */
+.rbc-month-row { min-height: 7rem; }
+.rbc-row-segment { min-height: 1.5em; }

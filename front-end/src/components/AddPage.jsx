@@ -1,8 +1,9 @@
 // AddPage.jsx - Page for adding a new course and its outline
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { supabase } from '../lib/supabaseClient.js'
+import { getOptionalGroupToggleable, getComponentBase, getGroupMaxIncluded } from '../lib/gradeUtils.js'
 import toast from 'react-hot-toast'
 import PlannerForm from './PlannerForm.jsx'
 
@@ -14,6 +15,8 @@ export default function AddPage() {
   const [parsedItems, setParsedItems] = useState([])
   const [previewMode, setPreviewMode] = useState(false)
   const [saving, setSaving] = useState(false)
+  // Max allowed "included" per optional group (N in "best N of M") - captured at parse time
+  const [groupMaxIncluded, setGroupMaxIncluded] = useState(() => new Map())
 
   // After GPT parsing, switch to preview mode
   function handleParsed(items) {
@@ -28,6 +31,7 @@ export default function AddPage() {
       return item
     })
     setParsedItems(convertedItems)
+    setGroupMaxIncluded(getGroupMaxIncluded(convertedItems))
     setPreviewMode(true)
   }
 
@@ -51,18 +55,111 @@ export default function AddPage() {
     ])
   }
 
+  // Only items in optional groups (e.g. "best N of M") can have checkbox toggled
+  const toggleableIndices = useMemo(
+    () => getOptionalGroupToggleable(parsedItems, false),
+    [parsedItems]
+  )
+
+  // Group colors for Add page only (not saved) - visible tints for readability
+  const groupColors = useMemo(() => {
+    const PALETTE = [
+      'hsla(220, 55%, 88%, 0.85)',   // blue
+      'hsla(150, 45%, 88%, 0.85)',   // green
+      'hsla(40, 65%, 88%, 0.85)',    // yellow
+      'hsla(280, 45%, 88%, 0.85)',   // purple
+      'hsla(0, 45%, 90%, 0.85)',     // light red
+      'hsla(180, 45%, 88%, 0.85)',   // cyan
+    ]
+    const seen = new Map()
+    let idx = 0
+    return parsedItems.map(item => {
+      const base = getComponentBase(item.name) || '(blank)'
+      if (!seen.has(base)) seen.set(base, PALETTE[idx++ % PALETTE.length])
+      return seen.get(base)
+    })
+  }, [parsedItems])
+
+  // Groups with fewer than X included (for warning banner)
+  const underMinGroups = useMemo(() => {
+    const list = []
+    for (const [base, maxAllowed] of groupMaxIncluded) {
+      const includedCount = parsedItems.filter(
+        it => getComponentBase(it.name) === base && it.included !== false
+      ).length
+      if (includedCount < maxAllowed) {
+        list.push({ base, current: includedCount, required: maxAllowed })
+      }
+    }
+    return list
+  }, [parsedItems, groupMaxIncluded])
+
+  // Sort by date for display (invalid/empty dates at end)
+  const sortedForDisplay = useMemo(() => {
+    const isValid = (d) => {
+      const s = (d || '').trim()
+      if (!s || s === 'yyyy-mm-dd' || s === 'NO_DATE') return false
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false
+      return !isNaN(new Date(`${s}T12:00:00`).getTime())
+    }
+    return parsedItems
+      .map((item, i) => ({ item, index: i }))
+      .sort((a, b) => {
+        const aValid = isValid(a.item.date)
+        const bValid = isValid(b.item.date)
+        if (!aValid && !bValid) return 0
+        if (!aValid) return 1
+        if (!bValid) return -1
+        return new Date(a.item.date) - new Date(b.item.date)
+      })
+  }, [parsedItems])
+
+  // Check if a date string is valid (YYYY-MM-DD)
+  function isValidDate(dateStr) {
+    const s = (dateStr || '').trim()
+    if (!s || s === 'yyyy-mm-dd' || s === 'NO_DATE') return false
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false
+    return !isNaN(new Date(`${s}T12:00:00`).getTime())
+  }
+
   // Save course and events to Supabase
   async function handleSave() {
     if (!title.trim()) {
       toast.error('Please enter a course title')
       return
     }
+    // Validate "best N of M" groups: don't allow more than N included
+    for (const [base, maxAllowed] of groupMaxIncluded) {
+      const includedCount = parsedItems.filter(
+        it => getComponentBase(it.name) === base && it.included !== false
+      ).length
+      if (includedCount > maxAllowed) {
+        const total = parsedItems.filter(it => getComponentBase(it.name) === base).length
+        toast.error(
+          `Only ${maxAllowed} of ${total} "${base}" items can be used to calculate your grade. ` +
+          `Please uncheck ${includedCount - maxAllowed} more.`
+        )
+        return
+      }
+    }
+
+    // Check for items with no/invalid date - show confirmation popup
+    const itemsWithoutDate = parsedItems.filter(item => !isValidDate(item.date))
+    if (itemsWithoutDate.length > 0) {
+      const names = itemsWithoutDate.map(it => it.name || '(unnamed)').join(', ')
+      const msg = `There is no date for: ${names}.\n\n` +
+        `If you continue, you will need to add the date later on the course page.\n\n` +
+        `Do you want to continue?`
+      if (!window.confirm(msg)) return
+    }
+
     setSaving(true)
-    // 1) Create the course
+    // 1) Create the course (store optional_groups for "best N of M" on Course page)
     const color = `hsl(${Math.floor(Math.random()*360)},70%,60%)`
+    const optionalGroupsJson = Object.fromEntries(groupMaxIncluded)
     const { data: courseData, error: courseErr } = await supabase
       .from('courses')
-      .insert([{ user_id: user.id, title, color }])
+      .insert([{ user_id: user.id, title, color, optional_groups: optionalGroupsJson }])
       .select('id')
     if (courseErr || !courseData?.length) {
       toast.error('Failed to save course')
@@ -70,30 +167,21 @@ export default function AddPage() {
       return
     }
     const course_id = courseData[0].id
-    // Validate all dates before saving
-    const invalidIdx = parsedItems.findIndex(item => {
-      const dateStr = (item.date || '').trim()
-      if (!dateStr) return true
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return true
-      const testDate = new Date(`${dateStr}T23:00:00`)
-      return isNaN(testDate.getTime())
-    })
-    if (invalidIdx !== -1) {
-      const problemDate = parsedItems[invalidIdx].date || 'empty'
-      toast.error(`Row ${invalidIdx + 1} has an invalid date: "${problemDate}". Please fix it before saving.`)
-      setSaving(false)
-      return
-    }
-    // 2) Insert events for the course
+    // 2) Insert events for the course (allow null date for items without valid date)
     const toInsert = parsedItems.map((item, idx) => {
       const dateStr = (item.date || '').trim()
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-        throw new Error(`Row ${idx + 1} has an invalid date format: "${dateStr}"`)
-      }
-      const start = new Date(`${dateStr}T23:00:00`)
-      const end = new Date(`${dateStr}T23:30:00`)
-      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-        throw new Error(`Row ${idx + 1} has an invalid date value: "${dateStr}"`)
+      const hasValidDate = isValidDate(dateStr)
+      let dateVal = null
+      let startTime = null
+      let endTime = null
+      if (hasValidDate) {
+        dateVal = dateStr
+        const start = new Date(`${dateStr}T23:00:00`)
+        const end = new Date(`${dateStr}T23:30:00`)
+        if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+          startTime = start.toISOString()
+          endTime = end.toISOString()
+        }
       }
       // Parse percent: DB expects numeric, strip "2.5 %" -> 2.5
       const percentVal = (item.percent || '').toString().replace(/%/g, '').trim()
@@ -102,11 +190,11 @@ export default function AddPage() {
         course_id,
         user_id: user.id,
         name: item.name,
-        date: dateStr,
+        date: dateVal,
         percent: isNaN(percentNum) ? null : percentNum,
         included: item.included !== false, // Default to true if not specified
-        start_time: start.toISOString(),
-        end_time: end.toISOString()
+        start_time: startTime,
+        end_time: endTime
       }
     })
     const { error: evErr } = await supabase
@@ -156,6 +244,30 @@ export default function AddPage() {
               Please double-check the original outline to ensure these values
               are 100% accurate before saving.
             </p>
+            {groupMaxIncluded.size > 0 && (
+              <p className="edit-instructions" style={{ fontSize: '0.9rem', fontStyle: 'italic', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>
+                💡 <strong>Optional groups (e.g. best 3 of 4):</strong> To switch which items are included, uncheck first, then check the other. Otherwise one will be randomly unchecked.
+              </p>
+            )}
+            {underMinGroups.length > 0 && (
+              <div
+                style={{
+                  padding: '1rem 1.25rem',
+                  marginBottom: '1rem',
+                  background: 'hsla(0, 70%, 50%, 0.15)',
+                  border: '2px solid hsl(0, 70%, 45%)',
+                  borderRadius: '8px',
+                  color: 'var(--text)'
+                }}
+              >
+                <strong>⚠️ Warning:</strong> You need to include at least the required number of items for each group:
+                {underMinGroups.map(({ base, current, required }) => (
+                  <div key={base} style={{ marginTop: '0.5rem' }}>
+                    • <strong>{base}</strong>: {current} of {required} required (check {required - current} more)
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="card-list">
               <table className="parsed-table">
                 <thead>
@@ -168,8 +280,8 @@ export default function AddPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {parsedItems.map((itm, i) => (
-                    <tr key={i}>
+                  {sortedForDisplay.map(({ item: itm, index: i }) => (
+                    <tr key={i} style={{ backgroundColor: groupColors[i] ?? 'transparent' }}>
                       <td>
                         <input
                           type="text"
@@ -217,9 +329,38 @@ export default function AddPage() {
                           <input
                             type="checkbox"
                             checked={itm.included !== false}
-                            onChange={e => updateItem(i, 'included', e.target.checked)}
-                            disabled={saving}
+                            onChange={e => {
+                              const checked = e.target.checked
+                              if (checked && toggleableIndices.has(i)) {
+                                const base = getComponentBase(itm.name)
+                                const maxAllowed = groupMaxIncluded.get(base)
+                                if (maxAllowed != null) {
+                                  const groupWithIdx = parsedItems.map((it, j) => ({ it, j })).filter(
+                                    ({ it }) => getComponentBase(it.name) === base
+                                  )
+                                  const includedWithIdx = groupWithIdx.filter(({ it }) => it.included !== false)
+                                  if (includedWithIdx.length >= maxAllowed) {
+                                    // Auto-uncheck one: no scores on Add page, so pick randomly
+                                    const excludeIdx = i
+                                    const candidates = includedWithIdx.filter(({ j }) => j !== excludeIdx)
+                                    if (candidates.length === 0) return
+                                    const toUncheck = candidates[Math.floor(Math.random() * candidates.length)].j
+                                    setParsedItems(xs =>
+                                      xs.map((it, j) => {
+                                        if (j === i) return { ...it, included: true }
+                                        if (j === toUncheck) return { ...it, included: false }
+                                        return it
+                                      })
+                                    )
+                                    return
+                                  }
+                                }
+                              }
+                              updateItem(i, 'included', checked)
+                            }}
+                            disabled={saving || !toggleableIndices.has(i)}
                             style={{ transform: 'scale(1.2)' }}
+                            title={!toggleableIndices.has(i) ? 'Only optional groups can be toggled' : ''}
                           />
                           <span style={{ fontSize: '0.9rem', color: itm.included !== false ? 'var(--accent)' : 'var(--text-muted)' }}>
                             {itm.included !== false ? 'Included' : 'Not Included'}

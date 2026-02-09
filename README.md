@@ -119,6 +119,7 @@ CREATE TABLE courses (
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     color TEXT DEFAULT '#3B82F6',
+    optional_groups JSONB DEFAULT '{}',
     inserted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

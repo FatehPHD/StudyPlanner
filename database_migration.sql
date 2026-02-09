@@ -27,3 +27,6 @@ COMMENT ON COLUMN events.end_time IS 'End time for calendar events';
 -- Todos: add due_date if missing (for "Could not find due_date column" error)
 ALTER TABLE todos ADD COLUMN IF NOT EXISTS due_date DATE;
 
+-- Courses: store optional group max (e.g. {"Quiz": 3, "Assignment": 3} for "best 3 of 4")
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS optional_groups JSONB DEFAULT '{}';
+

@@ -8,6 +8,7 @@ import {
   dateFnsLocalizer,
 } from 'react-big-calendar'
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop'
+import CustomMonth from './CustomMonth.jsx'
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import format from 'date-fns/format'
@@ -51,17 +52,17 @@ export default function CalendarPage() {
       .select('id, name, start_time, end_time, color, course_id, courses ( title, color )')
       .eq('user_id', user.id)
     if (error) return toast.error('Failed to load events')
-    setEvents(
-      data.map(e => ({
-        id: e.id,
-        title: e.courses ? `${e.courses.title}: ${e.name}` : e.name,
-        start: new Date(e.start_time),
-        end: new Date(e.end_time),
-        allDay: false,
-        color: e.courses?.color || e.color || '#6c757d',
-        course_id: e.course_id
-      }))
-    )
+    const mapped = data.map(e => ({
+      id: e.id,
+      title: e.courses ? `${e.courses.title}: ${e.name}` : e.name,
+      start: new Date(e.start_time),
+      end: new Date(e.end_time),
+      allDay: false,
+      color: e.courses?.color || e.color || '#6c757d',
+      course_id: e.course_id
+    }))
+    mapped.sort((a, b) => a.start - b.start)
+    setEvents(mapped)
   }
 
   // Fetch all courses for the user
@@ -209,7 +210,8 @@ export default function CalendarPage() {
             }
           })}
           style={{ height: 600, margin: '1rem 0' }}
-          views={['month', 'week', 'day', 'agenda']}
+          views={{ month: CustomMonth, week: true, day: true, agenda: true }}
+          popup
         />
       </div>
       {/* Event creation modal */}

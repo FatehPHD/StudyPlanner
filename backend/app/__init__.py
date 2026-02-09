@@ -227,12 +227,22 @@ def create_app():
     def get_profile(user_id):
         # Remove angle brackets if present
         user_id = user_id.strip('<>')
-        with get_db_conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT * FROM profiles WHERE user_id = %s", (user_id,))
-                profile = cur.fetchone()
+        try:
+            with get_db_conn() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT * FROM profiles WHERE user_id = %s", (user_id,))
+                    profile = cur.fetchone()
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
         if not profile:
             return jsonify({"error": "Profile not found"}), 404
-        return jsonify(profile)
+        # Convert to plain dict with JSON-serializable types (UUID, datetime)
+        out = dict(profile)
+        for k, v in list(out.items()):
+            if hasattr(v, 'hex'):  # UUID
+                out[k] = str(v)
+            elif hasattr(v, 'isoformat'):  # datetime
+                out[k] = v.isoformat() if v else None
+        return jsonify(out)
 
     return app

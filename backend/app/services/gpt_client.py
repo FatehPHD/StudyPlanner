@@ -132,7 +132,8 @@ Where:
   - LAB_DEPENDENT
 - Percent: numeric percentage with a trailing " %" (e.g., "5 %", "6.667 %").
 - Explanation: empty string "" if not needed; otherwise a short note (e.g., "tentative", "TBD by registrar").
-- Optional: boolean literal true or false (no quotes).
+- Optional: the word true (item is dropped/optional, not counted in grade) or false (item counts). REQUIRED on every line.
+CRITICAL: Every line MUST have exactly 5 comma-separated values: Name, Date, Percent, Explanation, Optional. When "best N of M" or "drop lowest" applies, exactly (M−N) lines must have Optional = true.
 
 Return ONLY the lines. No headings, no bullets, no extra commentary.
 
@@ -207,7 +208,7 @@ If the grading table says "best N of M" or the outline says "drop lowest X":
 - Compute each item's Percent = (component_total / N). Divide by N (counted), NOT by M (total).
   **Example:** Quizzes 15% total, "best 3 of 4" → N=3, M=4. Output 4 rows (Quiz 1..Quiz 4).
   Each row Percent = 15 ÷ 3 = 5 %. All four rows show 5 %. Do NOT use 15÷4 = 3.75% or 1.25%.
-- Mark EXACTLY (M − N) items as Optional=true (dropped), and the remaining N as Optional=false.
+- Mark EXACTLY (M − N) items as Optional=true (dropped), and the remaining N as Optional=false. You MUST output the word true as the 5th field for dropped items and false for counted items—no exceptions.
 - Optional (dropped) items KEEP the same Percent. Do NOT set them to 0%.
 - If the outline provides dated items, label them sequentially (Quiz 1..Quiz M) in the order of the dates.
 - If it does NOT specify which ones get dropped, set Optional=true on the LAST (M − N) items by date order.
@@ -245,6 +246,18 @@ PERCENT VALIDATION (CRITICAL)
 Return ONLY the lines in the required format.
 
 """
+
+def _is_optional(opt_val: str, name: str) -> bool:
+    """True if this item is optional/dropped (not counted in grade)."""
+    if not opt_val:
+        return False
+    o = opt_val.lower().strip()
+    if o in ("true", "optional", "yes", "dropped", "1"):
+        return True
+    if "(opt)" in name.lower() or "(optional)" in name.lower():
+        return True
+    return False
+
 
 def pre_process_outline(text: str) -> str:
     """Pre-process outline text to make dates explicit for GPT parsing."""
@@ -381,7 +394,7 @@ def parse_outline_with_gpt(outline_text: str, answers: list = None) -> list[dict
             else:
                 explanation = ""
                 opt_val = ""
-            included = not (opt_val == "true" or "(opt)" in name.lower() or "(optional)" in name.lower())
+            included = not _is_optional(opt_val, name)
             items.append({
                 "name": name,
                 "date": date,
@@ -438,6 +451,8 @@ Name, Date, P%, EXPLANATION, Optional
 Date is either "Month DD YYYY" or REGISTRAR_SCHEDULED or NO_DATE (or NO_DATE (ongoing)). Optional is true or false. No "(opt)" in Name.
 
 CRITICAL: Output EXACTLY one line per assessment item. NO duplicates. NO repeated items.
+Every line MUST have 5 fields: Name, Date, P%, EXPLANATION, Optional. Optional must be the word true or false.
+When "best N of M" or "drop lowest" applies, keep exactly (M−N) rows with Optional = true (the dropped items).
 Output ONLY the item lines—no headers, no numbers, no extra text.
 If you must correct, replace the list—do not append or duplicate.
 
@@ -489,7 +504,7 @@ If everything looks correct, output exactly: NO_CHANGES_NEEDED
             else:
                 explanation = ""
                 opt_val = ""
-            included = not (opt_val == "true" or "(opt)" in name.lower() or "(optional)" in name.lower())
+            included = not _is_optional(opt_val, name)
             corrected_items.append({
                 "name": name,
                 "date": date,

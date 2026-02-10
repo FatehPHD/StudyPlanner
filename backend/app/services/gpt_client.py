@@ -358,7 +358,7 @@ def parse_outline_with_gpt(outline_text: str, answers: list = None) -> list[dict
     ]
     
     resp = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         messages=messages,
         temperature=0.1
     )
@@ -448,7 +448,7 @@ If everything looks correct, output exactly: NO_CHANGES_NEEDED
     messages = [{"role": "user", "content": recheck_prompt}]
     
     resp = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         messages=messages,
         temperature=0.1
     )

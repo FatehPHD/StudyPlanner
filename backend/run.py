@@ -34,6 +34,7 @@ def extract_outline():
                                 chunk += "\n[Table]\n" + "\n".join(rows) + "\n"
                     page_chunks.append(chunk)
             text = "\n".join(page_chunks)
+            
         elif ext in ('doc', 'docx'):
             # Extract text from Word document
             doc = Document(file)

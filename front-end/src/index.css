@@ -36,13 +36,13 @@
   /* Motion */
   --transition-speed: 0.2s;
 
-  /* System defaults */
+  /* System defaults - use light so deployed/SSR first paint and form controls are correct when theme is light */
   font-family: var(--font-sans);
   line-height: 1.5;
   font-weight: 400;
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color-scheme: light;
+  color: #213547;
+  background-color: #ffffff;
   text-rendering: optimizeLegibility;
 }
 
@@ -181,16 +181,7 @@ button:hover {
   }
 }
 
-/* ===== Light-mode Overrides ===== */
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-}
+/* Light theme is the default in :root above. Dark theme is applied via [data-theme="dark"] in App.css. */
 
 /* ===== Dark-mode Overrides ===== */
 [data-theme="dark"] {

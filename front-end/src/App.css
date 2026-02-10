@@ -20,6 +20,9 @@
   --card-bg-hover: var(--surface-hover);
 }
 [data-theme="dark"] {
+  color: rgba(255,255,255,0.87);
+  background-color: #242424;
+  color-scheme: dark;
   --bg: #242424;
   --fg: rgba(255,255,255,0.87);
   --fg-muted: #aaa;

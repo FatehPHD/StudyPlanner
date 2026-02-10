@@ -112,157 +112,137 @@ READY_TO_PARSE
 
 # Prompt for final parsing after questions are answered
 SCHEDULER_PROMPT = f"""
-You are a scheduling assistant. A user has provided a course outline and answered clarifying questions. Your task is to extract every graded assessment item in the course.
+You are a scheduling assistant. A user has provided a course outline and answered clarifying questions (if any).
+Your task is to extract every GRADED assessment item and output EXACTLY one line per item.
 
-Output exactly ONE line per assessment item in the following format:
+========================
+OUTPUT FORMAT (STRICT)
+========================
+Output ONE line per graded assessment item in EXACTLY this CSV-like format:
 
-Name, Month DD YYYY, P%, EXPLANATION, Optional
+Name, Date, Percent, Explanation, Optional
 
 Where:
-- Name is the assessment title (e.g. "Quiz 1", "Assignment #2", "Midterm Exam"). Do NOT add "(opt)" or "(optional)" to the name.
-- Month DD YYYY is the due date spelled out (e.g. "March 06 2026").
-- P% is the percentage weight (e.g. "7.5 %").
-- EXPLANATION is ONLY used when Month DD YYYY is not an exact calendar date. Use empty string if not needed.
-- Optional is true or false (boolean). Use true for items that are dropped/not counted (e.g. "best N of M" or "lowest X dropped"); use false otherwise.
+- Name: short assessment name (e.g., "Quiz 1", "Midterm", "Project", "Final Exam").
+  - Do NOT add "(opt)" or "(optional)" to the name.
+- Date: an exact due date in "Month DD YYYY" (e.g., "February 26 2026") OR one of:
+  - REGISTRAR_SCHEDULED
+  - NO_DATE
+  - WEEK_OF Month DD YYYY
+  - LAB_DEPENDENT
+- Percent: numeric percentage with a trailing " %" (e.g., "5 %", "6.667 %").
+- Explanation: empty string "" if not needed; otherwise a short note (e.g., "tentative", "TBD by registrar").
+- Optional: boolean literal true or false (no quotes).
 
-If a precise calendar date is not given, use one of the following instead of a date:
-- WEEK_OF <Month DD YYYY>
-- LAB_DEPENDENT
-- REGISTRAR_SCHEDULED
-- NO_DATE
+Return ONLY the lines. No headings, no bullets, no extra commentary.
 
-If NO_DATE is used, include a short explanation (e.g. "TBA by instructor", "No schedule provided").
+========================
+INCLUDE ALL GRADED COMPONENTS (CRITICAL)
+========================
+- You MUST output exactly one row for EVERY component that appears in the grading breakdown / final grade determination table with a weight that contributes to 100%.
+- This includes: Quizzes, Midterm, Project, Final Exam, AND also Participation, In-class Participation, Attendance, or any similar component that has a percentage in the table.
+- If a component has no single due date (e.g. In-class Participation or ongoing), output one row with Date=NO_DATE or NO_DATE (ongoing) and its weight. Do NOT skip it.
 
---------------------
-FORMAT RULES (STRICT)
---------------------
-- Output ONLY the lines.
-- One assessment per line.
-- Do not merge multiple assessments into one line.
-- Do not reorder fields.
-- Do not add extra text, headings, bullets, or commentary.
-
---------------------
+========================
 NON-GRADED EXCLUSION (CRITICAL)
---------------------
-- ONLY output items that contribute to the final grade.
-- Do NOT output non-graded items such as:
+========================
+- ONLY output items that contribute to the final grade (i.e., appear in the grading breakdown / final grade determination table).
+- EXCLUDE non-graded windows and policies, including:
   - discussion periods / engagement windows
   - “open between” availability ranges
-  - grace periods, extension windows, submission instructions
-- Do NOT output any item with 0% unless the outline explicitly states it is graded at 0%.
+  - extension windows, grace periods, late policy text
+- Do NOT output ANY 0% items unless the outline explicitly states they are graded at 0%.
 
---------------------
+========================
 WEIGHT SOURCE OF TRUTH (CRITICAL)
---------------------
-- The ONLY authoritative source for percentages/weights is the grading breakdown / final grade determination table.
-- Ignore weights mentioned elsewhere if they conflict or are less explicit.
-- Deadlines/schedule sections provide dates/timing, NOT weights, unless the grading table is missing.
-- If multiple grading tables exist, choose the one that explicitly sums to 100% and is labeled like
-  "Final Grade Determination", "Grading", "Assessment Breakdown", or equivalent.
+========================
+- The ONLY authoritative source for weights is the grading breakdown / final grade determination table that sums to 100%.
+- Deadlines/schedule text provides dates/timing, NOT weights.
+- Do NOT create weights from deadlines text if the grading table exists.
 
---------------------
+========================
+SECTION DUPLICATION BAN (CRITICAL FIX)
+========================
+- Do NOT duplicate assessment items by lecture/lab section (e.g., “LEC 01 vs LEC 02”) unless the outline explicitly says
+  different sections have different graded requirements or different weights.
+- If the outline says something like “Both sections will have 4 quizzes…”, that means ONE set of quizzes for the course,
+  NOT 4 quizzes per section.
+
+========================
 ATOMIC DEADLINE RULE (CRITICAL)
---------------------
-- If a graded component has multiple distinct deadlines, you MUST output one line per deadline.
-- Group-level rows are FORBIDDEN if individual deadlines exist.
-- Collapsing multiple deadlines into a single row is NOT allowed.
+========================
+- If a graded component has multiple distinct dated sub-items, you MUST output one line per dated sub-item.
+- Group-level items like “Quizzes = 15%” are FORBIDDEN when individual quiz dates/items are listed.
 
---------------------
-COMPONENT MAPPING STEP (CRITICAL)
---------------------
-Before assigning any percentages, do this mentally:
-- Identify each graded component and its total weight from the grading table (e.g., “Course Progress Checks = 15%”).
-- Map each dated sub-item in the deadlines/schedule section to exactly ONE graded component.
-- If a dated item cannot be mapped to a graded component in the table, EXCLUDE it (it is not graded).
+========================
+STEP 1 — IDENTIFY GRADED COMPONENTS
+========================
+From the grading breakdown table, list each graded component and its total weight.
+Example components: Quizzes, Participation, In-class Participation, Attendance, Midterm, Project, Final Exam.
+Do not omit Participation/Attendance-type rows even if they have no single date (use NO_DATE or NO_DATE (ongoing)).
 
---------------------
-COMPONENT ANCHORING (CRITICAL)
---------------------
-- Sub-items listed in deadlines/schedules (modules, checkpoints, weekly quizzes, lab deliverables, etc.)
-  MUST inherit their weight ONLY from their graded component's total weight.
-- You are FORBIDDEN from assigning a standalone per-item weight (e.g., “Module 0 = 5%”) unless the outline explicitly states that exact per-item weight.
+========================
+STEP 2 — MAP DATED ITEMS TO COMPONENTS
+========================
+Using the deadlines/assessments text, identify dated sub-items and map EACH to exactly ONE graded component.
+- If an item cannot be mapped to any component in the grading table, EXCLUDE it (it is not graded).
 
---------------------
-COMPONENT TOTAL RULE (CRITICAL)
---------------------
-If a component has a total weight and multiple sub-items:
-1) Count ALL sub-items belonging to that component across the ENTIRE outline.
-2) Divide the component's total percentage by the TOTAL sub-item count.
-3) Assign that value to each sub-item,
-   unless the outline explicitly provides different per-item weights.
+========================
+RULE PRIORITY ORDER (CRITICAL FIX)
+========================
+When assigning per-item percentages, apply rules in this exact priority order:
 
-- Do NOT divide by the number of items on a single date.
-- All sub-items must sum exactly to the component total.
+(1) BEST-OF / DROP RULES (HIGHEST PRIORITY)
+(2) EXPLICIT PER-ITEM WEIGHTS (if the outline explicitly gives each item’s weight)
+(3) COMPONENT EVEN SPLIT (default)
 
-EXAMPLE (MUST FOLLOW):
-If the grading table says "Course Progress Checks = 15%" and there are 6 progress check sub-items,
-each sub-item MUST be 2.5% (15 / 6).
+Lower priority rules must NEVER override higher priority rules.
 
---------------------
-BEST-OF / DROPPED ITEM RULES (CRITICAL)
---------------------
-- If the outline says "best N of M" or "lowest X dropped", output EXACTLY M items.
-- Divide the total percentage by N (the number counted).
-- For the (M - N) items that are dropped/not counted, set Optional: true. Set Optional: false for the N items that count.
-- Put Optional: true on the LAST (M - N) items of that component (e.g. if 5 quizzes, 1 dropped, the 5th quiz gets Optional: true).
-- ALL items (including optional ones) must show the recalculated percentage. Do NOT put "(opt)" in the Name.
+========================
+(1) BEST-OF / DROP RULES (HIGHEST PRIORITY)
+========================
+If the grading table says "best N of M" or the outline says "drop lowest X":
+- Output EXACTLY M items (one row per quiz/assignment).
+- N = number of items that COUNT toward the grade. M = total number of items.
+- Compute each item's Percent = (component_total / N). Divide by N (counted), NOT by M (total).
+  **Example:** Quizzes 15% total, "best 3 of 4" → N=3, M=4. Output 4 rows (Quiz 1..Quiz 4).
+  Each row Percent = 15 ÷ 3 = 5 %. All four rows show 5 %. Do NOT use 15÷4 = 3.75% or 1.25%.
+- Mark EXACTLY (M − N) items as Optional=true (dropped), and the remaining N as Optional=false.
+- Optional (dropped) items KEEP the same Percent. Do NOT set them to 0%.
+- If the outline provides dated items, label them sequentially (Quiz 1..Quiz M) in the order of the dates.
+- If it does NOT specify which ones get dropped, set Optional=true on the LAST (M − N) items by date order.
 
---------------------
-ALTERNATIVE / OR ASSESSMENTS
---------------------
-- If an assessment can be completed in one of multiple ways (A OR B):
-  - Output one line per alternative.
-  - Each alternative keeps the same divided percentage.
-  - Do NOT choose one.
-  - Do NOT mark alternatives as optional unless explicitly stated.
+========================
+(2) EXPLICIT PER-ITEM WEIGHTS
+========================
+If (and only if) the outline explicitly lists each item’s weight (e.g., “Quiz 1 = 3%, Quiz 2 = 4%”):
+- Use those exact weights.
+- Optional remains false unless best-of/drop explicitly applies.
 
---------------------
-DATE PRECISION RULES
---------------------
-- Do NOT infer dates or times.
-- Do NOT convert "week of" into a specific day.
-- If multiple assessments share the same stated date, duplicate that date exactly.
+========================
+(3) COMPONENT EVEN SPLIT (DEFAULT)
+========================
+If a component has total weight W% and it has K dated sub-items AND no best-of/drop rule applies:
+- Assign each sub-item Percent = (W / K).
+- Optional=false for all unless explicitly dropped.
 
---------------------
-RECURRING ASSESSMENTS
---------------------
-- Only calculate recurring dates if:
-  - A first date is explicitly provided AND
-  - The recurrence pattern is explicitly defined or confirmed by user answers.
-- Otherwise use WEEK_OF or NO_DATE.
+========================
+DATE RULES (STRICT)
+========================
+- Do NOT infer missing dates.
+- If a date is stated as tentative, still use the date but set Explanation="tentative".
+- For registrar scheduled finals, use Date=REGISTRAR_SCHEDULED and Explanation="registrar scheduled".
+- If truly no timing exists, use Date=NO_DATE with a short Explanation.
 
---------------------
-LAB-SPECIFIC RULE
---------------------
-- If lab reports are due a fixed time after the lab, compute the due date accordingly.
-- Do NOT guess lab schedules.
+========================
+PERCENT VALIDATION (CRITICAL)
+========================
+- For components WITHOUT a drop rule: the sum of that component's item Percents equals the component total.
+- For components WITH "best N of M": each item Percent = component_total/N; the N included items sum to component_total (the M−N optional rows show the same Percent but are excluded from the grade).
+- Overall total of all components must sum to exactly 100%.
+- If it still cannot be made consistent due to conflicting text, append " (CHECK_WEIGHTS)" to the Name of affected items.
 
---------------------
-NO REBALANCING (CRITICAL)
---------------------
-- You are NOT allowed to change any component's total weight to make math work.
-- If the grading table says a component is X%, it must sum to X% exactly.
-
---------------------
-PER-COMPONENT VERIFICATION (CRITICAL)
---------------------
-Before outputting any lines, you MUST verify:
-- For EACH graded component, the sum of its output item percentages equals that component's stated total weight.
-If any component does not match:
-- Correct the mapping/counting/division.
-- Do NOT proceed until every component matches.
-
---------------------
-OVERALL PERCENT VERIFICATION (CRITICAL)
---------------------
-- After per-component verification, verify the overall total sums to exactly 100%.
-- If still impossible, append "(CHECK_WEIGHTS)" to the affected Name(s).
-
---------------------
-OUTPUT ONLY (FINAL)
---------------------
-Return ONLY the lines in the required format. No extra text.
+Return ONLY the lines in the required format.
 
 """
 
@@ -390,10 +370,17 @@ def parse_outline_with_gpt(outline_text: str, answers: list = None) -> list[dict
     for line in lines:
         parts = [p.strip() for p in line.split(",")]
         if len(parts) >= 3:
+            # Optional is always last field (true/false). Handle commas in Name/Explanation.
             name, date, percent = parts[0], parts[1], parts[2]
-            explanation = parts[3] if len(parts) > 3 else ""
-            # Optional is 5th field (true/false). Fallback: (opt) in name for backward compat
-            opt_val = parts[4].lower() if len(parts) > 4 else ""
+            if len(parts) >= 5:
+                explanation = ",".join(parts[3:-1]).strip()
+                opt_val = parts[-1].lower()
+            elif len(parts) == 4:
+                explanation = parts[3]
+                opt_val = ""
+            else:
+                explanation = ""
+                opt_val = ""
             included = not (opt_val == "true" or "(opt)" in name.lower() or "(optional)" in name.lower())
             items.append({
                 "name": name,
@@ -428,13 +415,16 @@ Please recheck for these common errors and fix them:
 
 2. **Lab due dates**: Lab reports are due a certain amount of days after completion date. Make sure lab dates are due dates, not completion dates. probably mentioned
 
-3. **Percentage calculations**: If items are optional, divide the total percentage among the remaining counted items. 
-   - Example: 5 quizzes worth 2.5% total, with 1 dropped = 2.5% ÷ 4 counted = 0.625% each
-   - The optional item should still show the calculated percentage (0.625%), not the original (0.5%)
+3. **Percentage calculations (best N of M / drop lowest)**: Divide the component total by N (the number that COUNT), not by M (total items). Every row—including dropped ones—shows the same Percent = component_total ÷ N.
+   - Example: Best 3 of 4 quizzes, 15% total → N=3, so each of the 4 rows = 15÷3 = 5 %. Do NOT use 15÷4 = 3.75% or 1.25%.
+   - Example: 5 quizzes 2.5% total, 1 dropped → N=4 count, so 2.5÷4 = 0.625% each (all 5 rows show 0.625%).
+   - The dropped/optional item still shows that same percentage; do not set it to 0%.
 
-4. **Date format**: Use "Month DD YYYY" format (e.g., "September 08 2025").
+4. **Date format**: Use "Month DD YYYY" for known dates. For placeholder dates keep exactly: REGISTRAR_SCHEDULED (final exam TBD), NO_DATE (no timing), or NO_DATE (ongoing) for ongoing items. Do NOT replace these with real dates.
 
 5. **Consistency**: Ensure all percentages sum to 100%.
+
+6. **Do not drop graded components**: If the outline grading table includes Participation, In-class Participation, Attendance, or similar (with a %), there must be exactly one row for it, with Date=NO_DATE or NO_DATE (ongoing) if it has no single date.
 
 Original outline context:
 {outline_text[:500]}...
@@ -443,9 +433,9 @@ User answers:
 {answers if answers else "None"}
 
 If you find any errors, output the corrected items in the same format:
-Name, Month DD YYYY, P%, EXPLANATION, Optional
+Name, Date, P%, EXPLANATION, Optional
 
-(Optional is true or false. No "(opt)" in Name.)
+Date is either "Month DD YYYY" or REGISTRAR_SCHEDULED or NO_DATE (or NO_DATE (ongoing)). Optional is true or false. No "(opt)" in Name.
 
 CRITICAL: Output EXACTLY one line per assessment item. NO duplicates. NO repeated items.
 Output ONLY the item lines—no headers, no numbers, no extra text.
@@ -490,8 +480,15 @@ If everything looks correct, output exactly: NO_CHANGES_NEEDED
         parts = [p.strip() for p in line.split(",")]
         if len(parts) >= 3:
             name, date, percent = parts[0], parts[1], parts[2]
-            explanation = parts[3] if len(parts) > 3 else ""
-            opt_val = parts[4].lower() if len(parts) > 4 else ""
+            if len(parts) >= 5:
+                explanation = ",".join(parts[3:-1]).strip()
+                opt_val = parts[-1].lower()
+            elif len(parts) == 4:
+                explanation = parts[3]
+                opt_val = ""
+            else:
+                explanation = ""
+                opt_val = ""
             included = not (opt_val == "true" or "(opt)" in name.lower() or "(optional)" in name.lower())
             corrected_items.append({
                 "name": name,

@@ -2,6 +2,7 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import { useTheme } from '../context/ThemeContext.jsx'
 import { supabase } from '../lib/supabaseClient.js'
 import { getOptionalGroupToggleable, getComponentBase, getGroupMaxIncluded } from '../lib/gradeUtils.js'
 import toast from 'react-hot-toast'
@@ -9,6 +10,7 @@ import PlannerForm from './PlannerForm.jsx'
 
 export default function AddPage() {
   const { user } = useAuth()
+  const { theme } = useTheme()
   const navigate = useNavigate()
   const [title, setTitle] = useState('')
   const [outlineText, setOutlineText] = useState('')
@@ -63,7 +65,7 @@ export default function AddPage() {
 
   // Group colors for Add page only (not saved) - visible tints for readability
   const groupColors = useMemo(() => {
-    const PALETTE = [
+    const lightPalette = [
       'hsla(220, 55%, 88%, 0.85)',   // blue
       'hsla(150, 45%, 88%, 0.85)',   // green
       'hsla(40, 65%, 88%, 0.85)',    // yellow
@@ -71,6 +73,15 @@ export default function AddPage() {
       'hsla(0, 45%, 90%, 0.85)',     // light red
       'hsla(180, 45%, 88%, 0.85)',   // cyan
     ]
+    const darkPalette = [
+      'hsla(220, 25%, 22%, 0.6)',    // blue tint
+      'hsla(150, 20%, 22%, 0.6)',    // green tint
+      'hsla(40, 25%, 24%, 0.6)',     // amber tint
+      'hsla(280, 22%, 24%, 0.6)',   // purple tint
+      'hsla(0, 22%, 24%, 0.6)',      // red tint
+      'hsla(180, 22%, 22%, 0.6)',    // cyan tint
+    ]
+    const PALETTE = theme === 'dark' ? darkPalette : lightPalette
     const seen = new Map()
     let idx = 0
     return parsedItems.map(item => {
@@ -78,7 +89,7 @@ export default function AddPage() {
       if (!seen.has(base)) seen.set(base, PALETTE[idx++ % PALETTE.length])
       return seen.get(base)
     })
-  }, [parsedItems])
+  }, [parsedItems, theme])
 
   // Groups with fewer than X included (for warning banner)
   const underMinGroups = useMemo(() => {
@@ -98,7 +109,7 @@ export default function AddPage() {
   const sortedForDisplay = useMemo(() => {
     const isValid = (d) => {
       const s = (d || '').trim()
-      if (!s || s === 'yyyy-mm-dd' || s === 'NO_DATE') return false
+      if (!s || s === 'yyyy-mm-dd' || s === 'NO_DATE' || s.toUpperCase() === 'REGISTRAR_SCHEDULED' || s.toUpperCase().startsWith('NO_DATE')) return false
       if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false
       return !isNaN(new Date(`${s}T12:00:00`).getTime())
     }
@@ -114,10 +125,20 @@ export default function AddPage() {
       })
   }, [parsedItems])
 
+  // True if date is a placeholder (no calendar date)
+  function isPlaceholderDate(dateStr) {
+    const s = (dateStr || '').trim()
+    if (!s) return true
+    if (s === 'yyyy-mm-dd' || s === 'NO_DATE') return true
+    if (s.toUpperCase() === 'REGISTRAR_SCHEDULED') return true
+    if (s.toUpperCase().startsWith('NO_DATE')) return true
+    return false
+  }
+
   // Check if a date string is valid (YYYY-MM-DD)
   function isValidDate(dateStr) {
     const s = (dateStr || '').trim()
-    if (!s || s === 'yyyy-mm-dd' || s === 'NO_DATE') return false
+    if (!s || isPlaceholderDate(s)) return false
     if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false
     return !isNaN(new Date(`${s}T12:00:00`).getTime())
   }
@@ -295,21 +316,24 @@ export default function AddPage() {
                         <input
                           type="date"
                           value={(() => {
-                            if (itm.date === 'NO_DATE') return ''
+                            if (isPlaceholderDate(itm.date)) return ''
                             if (/^\d{4}-\d{2}-\d{2}$/.test(itm.date)) {
                               return itm.date
                             }
                             const d = new Date(itm.date)
-                            return isNaN(d) ? '' : d.toISOString().slice(0,10)
+                            return isNaN(d.getTime()) ? '' : d.toISOString().slice(0,10)
                           })()}
                           onChange={e => updateItem(i, 'date', e.target.value)}
                           disabled={saving}
-                          className={`input-field ${!itm.date || itm.date === 'yyyy-mm-dd' || itm.date.trim() === '' || itm.date === 'NO_DATE' ? 'empty-date' : ''}`}
+                          className={`input-field ${!itm.date || itm.date === 'yyyy-mm-dd' || itm.date.trim() === '' || isPlaceholderDate(itm.date) ? 'empty-date' : ''}`}
                         />
-                        {(!itm.date || itm.date === 'yyyy-mm-dd' || itm.date.trim() === '' || itm.date === 'NO_DATE') && (
-                          <span 
+                        {(!itm.date || itm.date === 'yyyy-mm-dd' || itm.date.trim() === '' || isPlaceholderDate(itm.date)) && (
+                          <span
                             className="date-help-icon"
-                            title={itm.explanation || "No specific date mentioned in outline - please add manually"}
+                            title={[
+                              itm.date && itm.date.trim() !== '' && isPlaceholderDate(itm.date) ? itm.date : null,
+                              itm.explanation || (itm.date && itm.date.toUpperCase() === 'REGISTRAR_SCHEDULED' ? 'Scheduled by registrar (TBD)' : 'No specific date - add manually')
+                            ].filter(Boolean).join(': ')}
                           >
                             ?
                           </span>
@@ -363,7 +387,7 @@ export default function AddPage() {
                             title={!toggleableIndices.has(i) ? 'Only optional groups can be toggled' : ''}
                           />
                           <span style={{ fontSize: '0.9rem', color: itm.included !== false ? 'var(--accent)' : 'var(--text-muted)' }}>
-                            {itm.included !== false ? 'Included' : 'Not Included'}
+                            {itm.included !== false ? 'Included' : (toggleableIndices.has(i) ? '(dropped)' : 'Not Included')}
                           </span>
                         </label>
                       </td>

@@ -44,7 +44,7 @@ def create_app():
                 {"role": "user", "content": outline_text}
             ]
             resp = client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4o",
                 messages=messages,
                 temperature=0.1
             )

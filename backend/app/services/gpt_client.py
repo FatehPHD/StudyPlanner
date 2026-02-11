@@ -18,6 +18,7 @@ Your job is to analyze the outline and identify SPECIFIC missing information tha
 
 **CRITICAL RULE**: Only ask questions for information that is ACTUALLY MISSING and ESSENTIAL for scheduling.
 
+
 **ANALYZE THE OUTLINE CAREFULLY** and ask targeted questions based on what's actually in the document:
 
 ========================
@@ -49,8 +50,7 @@ CRITICAL ADDITIONS (MUST FOLLOW)
 
 **5) FINAL EXAM PLACEHOLDER RULE**
 - If final exam is registrar-scheduled / TBD:
-  - Ask exactly ONE question:
-    “Do you want me to store this as REGISTRAR_SCHEDULED (TBD) now, or leave it empty and add later?”
+  - dont ask any questions about the final exam date. it will be answered in the next prompt.
   - Do not ask for the actual date.
 
 **6) RECURRING RULE: ASK ONLY WHEN YOU CAN’T GENERATE**
@@ -59,7 +59,7 @@ CRITICAL ADDITIONS (MUST FOLLOW)
 
 **7) DROP/OPTIONAL RULE CLARIFICATION**
 - If the outline mentions “best N of M” / “drop lowest”:
-  - Ask: “Do you want me to apply this rule and mark dropped items as optional (opt)?”
+  - dont ask should i mark the dropped items as optional (opt). it will be answered in the next prompt.
   - Do NOT ask how many are dropped if the outline already states it.
 
 **8) ONE QUESTION PER MISSING FACT**
@@ -80,13 +80,11 @@ EXISTING GUIDANCE
 
 **For exam dates:**
 - If midterm has a specific date, confirm it rather than asking
-- If final is "Registrar scheduled", ask if they want a placeholder or to wait
+
 
 **For ongoing assessments:**
 - If something is "ongoing" (like Top Hat), ask how they want it scheduled (aggregate vs weekly)
 
-**For drop rules:**
-- If the outline mentions dropping lowest grades, ask if they want this applied
 
 **EXAMPLES OF SMART QUESTIONS:**
 
@@ -120,7 +118,7 @@ OUTPUT FORMAT (STRICT)
 ========================
 Output ONE line per graded assessment item in EXACTLY this CSV-like format:
 
-Name, Date, Percent, Explanation, Optional
+Name, Date, Percent, Explanation, Optional (true or false)
 
 Where:
 - Name: short assessment name (e.g., "Quiz 1", "Midterm", "Project", "Final Exam").
@@ -132,8 +130,7 @@ Where:
   - LAB_DEPENDENT
 - Percent: numeric percentage with a trailing " %" (e.g., "5 %", "6.667 %").
 - Explanation: empty string "" if not needed; otherwise a short note (e.g., "tentative", "TBD by registrar").
-- Optional: the word true (item is dropped/optional, not counted in grade) or false (item counts). REQUIRED on every line.
-CRITICAL: Every line MUST have exactly 5 comma-separated values: Name, Date, Percent, Explanation, Optional. When "best N of M" or "drop lowest" applies, exactly (M−N) lines must have Optional = true.
+- Optional: boolean literal true or false (no quotes).
 
 Return ONLY the lines. No headings, no bullets, no extra commentary.
 
@@ -208,7 +205,7 @@ If the grading table says "best N of M" or the outline says "drop lowest X":
 - Compute each item's Percent = (component_total / N). Divide by N (counted), NOT by M (total).
   **Example:** Quizzes 15% total, "best 3 of 4" → N=3, M=4. Output 4 rows (Quiz 1..Quiz 4).
   Each row Percent = 15 ÷ 3 = 5 %. All four rows show 5 %. Do NOT use 15÷4 = 3.75% or 1.25%.
-- Mark EXACTLY (M − N) items as Optional=true (dropped), and the remaining N as Optional=false. You MUST output the word true as the 5th field for dropped items and false for counted items—no exceptions.
+- Mark EXACTLY (M − N) items as Optional=true (dropped), and the remaining N as Optional=false.
 - Optional (dropped) items KEEP the same Percent. Do NOT set them to 0%.
 - If the outline provides dated items, label them sequentially (Quiz 1..Quiz M) in the order of the dates.
 - If it does NOT specify which ones get dropped, set Optional=true on the LAST (M − N) items by date order.
@@ -246,18 +243,6 @@ PERCENT VALIDATION (CRITICAL)
 Return ONLY the lines in the required format.
 
 """
-
-def _is_optional(opt_val: str, name: str) -> bool:
-    """True if this item is optional/dropped (not counted in grade)."""
-    if not opt_val:
-        return False
-    o = opt_val.lower().strip()
-    if o in ("true", "optional", "yes", "dropped", "1"):
-        return True
-    if "(opt)" in name.lower() or "(optional)" in name.lower():
-        return True
-    return False
-
 
 def pre_process_outline(text: str) -> str:
     """Pre-process outline text to make dates explicit for GPT parsing."""
@@ -311,7 +296,7 @@ def analyze_outline_for_questions(outline_text: str) -> dict:
     ]
     
     resp = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         messages=messages,
         temperature=0.1
     )
@@ -377,6 +362,7 @@ def parse_outline_with_gpt(outline_text: str, answers: list = None) -> list[dict
     )
     
     raw = resp.choices[0].message.content or ""
+    print("[DEBUG] parse_outline_with_gpt — GPT raw response:\n", raw, "\n---")
     lines = [l.strip() for l in raw.splitlines() if l.strip()]
     items = []
     
@@ -394,7 +380,7 @@ def parse_outline_with_gpt(outline_text: str, answers: list = None) -> list[dict
             else:
                 explanation = ""
                 opt_val = ""
-            included = not _is_optional(opt_val, name)
+            included = not (opt_val == "true" or "(opt)" in name.lower() or "(optional)" in name.lower())
             items.append({
                 "name": name,
                 "date": date,
@@ -418,26 +404,20 @@ def recheck_parsed_items(items: list[dict], outline_text: str, answers: list = N
     items_text = "\n".join([f"{item['name']}, {item['date']}, {item['percent']}, {item.get('explanation', '')}, {'true' if not item.get('included', True) else 'false'}" for item in items])
     
     recheck_prompt = f"""
-You just parsed a course outline and generated these items:
+You are rechecking a parsed course outline. The items below were already produced by a first pass.
 
 {items_text}
 
-Please recheck for these common errors and fix them:
+CRITICAL — DO NOT "FIX" WHAT IS ALREADY CORRECT:
+- If the list already has "best N of M" / drop-lowest structure (e.g. 4 quizzes with the same Percent and exactly 1 with Optional: true), do NOT change any Percent or Optional values. Output NO_CHANGES_NEEDED.
+- Only suggest changes for real errors: wrong date format, typos in names, missing items, or percentages that clearly do not sum to 100% because of an obvious mistake. Do NOT change Percent or Optional when the first pass already used component_total/N correctly (e.g. 6.667% for "best 3 of 4" with 20% total).
 
-1. **Optional items**: If the outline mentions "lowest X dropped" or "best N of M", exactly M-N items should have Optional: true (the last M-N items of that component). Do NOT put "(opt)" in the Name.
-
-2. **Lab due dates**: Lab reports are due a certain amount of days after completion date. Make sure lab dates are due dates, not completion dates. probably mentioned
-
-3. **Percentage calculations (best N of M / drop lowest)**: Divide the component total by N (the number that COUNT), not by M (total items). Every row—including dropped ones—shows the same Percent = component_total ÷ N.
-   - Example: Best 3 of 4 quizzes, 15% total → N=3, so each of the 4 rows = 15÷3 = 5 %. Do NOT use 15÷4 = 3.75% or 1.25%.
-   - Example: 5 quizzes 2.5% total, 1 dropped → N=4 count, so 2.5÷4 = 0.625% each (all 5 rows show 0.625%).
-   - The dropped/optional item still shows that same percentage; do not set it to 0%.
-
-4. **Date format**: Use "Month DD YYYY" for known dates. For placeholder dates keep exactly: REGISTRAR_SCHEDULED (final exam TBD), NO_DATE (no timing), or NO_DATE (ongoing) for ongoing items. Do NOT replace these with real dates.
-
-5. **Consistency**: Ensure all percentages sum to 100%.
-
-6. **Do not drop graded components**: If the outline grading table includes Participation, In-class Participation, Attendance, or similar (with a %), there must be exactly one row for it, with Date=NO_DATE or NO_DATE (ongoing) if it has no single date.
+Only fix these if they are actually wrong:
+1. **Optional flags**: Change only if the count of Optional: true is wrong for a "best N of M" component (e.g. should be 1 dropped but there are 0 or 2). Do NOT set Optional to false on items that were correctly marked dropped.
+2. **Lab due dates**: Only if lab dates are clearly completion dates instead of due dates.
+3. **Percent**: Only if there is a clear math error (e.g. total not 100%) and it's obvious how to fix it. Do NOT replace correct "component_total ÷ N" percentages (e.g. 6.667%) with "component_total ÷ M" (e.g. 10%).
+4. **Date format**: Only if a date is wrong format; keep REGISTRAR_SCHEDULED and NO_DATE as-is.
+5. **Missing component**: Only if a graded component from the outline is missing (e.g. Participation).
 
 Original outline context:
 {outline_text[:500]}...
@@ -445,18 +425,11 @@ Original outline context:
 User answers:
 {answers if answers else "None"}
 
-If you find any errors, output the corrected items in the same format:
+If the items are correct or only trivially wrong, output exactly: NO_CHANGES_NEEDED
+
+If you must correct real errors, output the corrected lines in this format only:
 Name, Date, P%, EXPLANATION, Optional
-
-Date is either "Month DD YYYY" or REGISTRAR_SCHEDULED or NO_DATE (or NO_DATE (ongoing)). Optional is true or false. No "(opt)" in Name.
-
-CRITICAL: Output EXACTLY one line per assessment item. NO duplicates. NO repeated items.
-Every line MUST have 5 fields: Name, Date, P%, EXPLANATION, Optional. Optional must be the word true or false.
-When "best N of M" or "drop lowest" applies, keep exactly (M−N) rows with Optional = true (the dropped items).
-Output ONLY the item lines—no headers, no numbers, no extra text.
-If you must correct, replace the list—do not append or duplicate.
-
-If everything looks correct, output exactly: NO_CHANGES_NEEDED
+(Optional is true or false. One line per item. No headers.)
 
 """
 
@@ -469,7 +442,8 @@ If everything looks correct, output exactly: NO_CHANGES_NEEDED
     )
     
     recheck_response = resp.choices[0].message.content or ""
-    
+    print("[DEBUG] recheck_parsed_items — GPT recheck response:\n", recheck_response, "\n---")
+
     # If no changes needed, return original items (deduped)
     if "NO_CHANGES_NEEDED" in recheck_response.upper():
         return _dedupe_items(items)
@@ -504,7 +478,7 @@ If everything looks correct, output exactly: NO_CHANGES_NEEDED
             else:
                 explanation = ""
                 opt_val = ""
-            included = not _is_optional(opt_val, name)
+            included = not (opt_val == "true" or "(opt)" in name.lower() or "(optional)" in name.lower())
             corrected_items.append({
                 "name": name,
                 "date": date,

@@ -7,6 +7,8 @@ import pdfplumber
 from docx import Document
 import traceback
 
+MAX_OUTLINE_PAGES = 6  # Only extract first N pages from PDFs; rest is ignored
+
 app = create_app()
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
@@ -20,10 +22,10 @@ def extract_outline():
     ext = filename.rsplit('.', 1)[-1].lower()
     try:
         if ext == 'pdf':
-            # Extract text from PDF using pdfplumber (text + tables, like parserr.py)
+            # Extract text from PDF using pdfplumber (text + tables); only first N pages
             page_chunks = []
             with pdfplumber.open(file.stream) as pdf:
-                for p in pdf.pages:
+                for p in pdf.pages[:MAX_OUTLINE_PAGES]:
                     chunk = p.extract_text() or ""
                     # Also extract tables (grading schemes, schedules) and append as readable text
                     tables = p.extract_tables() or []
@@ -34,7 +36,7 @@ def extract_outline():
                                 chunk += "\n[Table]\n" + "\n".join(rows) + "\n"
                     page_chunks.append(chunk)
             text = "\n".join(page_chunks)
-            
+
         elif ext in ('doc', 'docx'):
             # Extract text from Word document
             doc = Document(file)

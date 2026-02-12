@@ -149,6 +149,7 @@ NON-GRADED EXCLUSION (CRITICAL)
   - discussion periods / engagement windows
   - “open between” availability ranges
   - extension windows, grace periods, late policy text
+- Do NOT output rows for "Discussion Period", "Open between [date]-[date]", "engagement window", or "remain open for X days" when they refer to a time window rather than a single due date. Only output rows for items that have a single deadline and appear under a graded component in the grading table.
 - Do NOT output ANY 0% items unless the outline explicitly states they are graded at 0%.
 
 ========================
@@ -171,6 +172,12 @@ ATOMIC DEADLINE RULE (CRITICAL)
 ========================
 - If a graded component has multiple distinct dated sub-items, you MUST output one line per dated sub-item.
 - Group-level items like “Quizzes = 15%” are FORBIDDEN when individual quiz dates/items are listed.
+
+========================
+LABEL: DATE / COURSE PROGRESS CHECKS (CRITICAL)
+========================
+- When the outline has a "marking deadlines" or "Course Progress Checks" (or similar) section that lists items in "Label: Date" form (e.g. "Intro quiz: January 22", "Module 0: January 22", "Module 2: February 12"), output ONE line per such item with the date and split the component weight evenly across those items (e.g. 15% over 6 items = 2.5 % each). Use the exact label as the Name (e.g. "Intro quiz", "Module 0", "Module 4").
+- EXCLUDE lines that describe a period or window rather than a single deadline: "Discussion Period for ... Open between Jan 22-29", "Open between February 26-March 5", "remain open for 1-week after the due date". Do not output a row for these.
 
 ========================
 STEP 1 — IDENTIFY GRADED COMPONENTS
@@ -233,6 +240,14 @@ DATE RULES (STRICT)
 - If truly no timing exists, use Date=NO_DATE with a short Explanation.
 
 ========================
+USE ANSWERS FOR SECTION-DEPENDENT DATES (CRITICAL)
+========================
+- When the user content includes "Answers to clarifying questions" (e.g. lab section B01 or B02), you MUST use those answers to resolve any section-dependent or alternate dates in the outline.
+- If the outline gives alternate dates per section (e.g. "project demo Wednesday April 8 (L02) or Friday April 10 (L01)"), use the student's section answer to choose the correct date: e.g. answer "B01" or "L01" -> use April 10; "B02" or "L02" -> use April 8. Use the timetable or (L01)/(L02) labels in the outline to map section codes to dates. Output that date for the item; do NOT leave it NO_DATE or empty.
+- This applies whenever the outline ties a deadline to a section/lab (e.g. "during the last lab session ... Wednesday April 8 (L02) or Friday April 10 (L01)").
+- Registrar-scheduled / TBD final exams are not filled from section answers; keep them as Date=REGISTRAR_SCHEDULED.
+
+========================
 PERCENT VALIDATION (CRITICAL)
 ========================
 - For components WITHOUT a drop rule: the sum of that component's item Percents equals the component total.
@@ -281,6 +296,16 @@ def pre_process_outline(text: str) -> str:
         r'\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?!\s*\d{4})\b',
         rf'\1 \2 {year}',
         text
+    )
+    # Ensure "Label: Month DD" lines (e.g. Course Progress marking deadlines) have year for GPT
+    def _add_year_to_label_date(match):
+        prefix, month, day = match.group(1), match.group(2), match.group(3)
+        return f"{prefix}{month} {day} {year}"
+    text = re.sub(
+        r'^([^:\n]+:\s*)(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?!\s*\d{4})\b',
+        _add_year_to_label_date,
+        text,
+        flags=re.MULTILINE
     )
     return text
 
@@ -404,34 +429,34 @@ def recheck_parsed_items(items: list[dict], outline_text: str, answers: list = N
     items_text = "\n".join([f"{item['name']}, {item['date']}, {item['percent']}, {item.get('explanation', '')}, {'true' if not item.get('included', True) else 'false'}" for item in items])
     
     recheck_prompt = f"""
-You are rechecking a parsed course outline. The items below were already produced by a first pass.
+    You are rechecking a parsed course outline. The items below were already produced by a first pass.
 
-{items_text}
+    {items_text}
 
-CRITICAL — DO NOT "FIX" WHAT IS ALREADY CORRECT:
-- If the list already has "best N of M" / drop-lowest structure (e.g. 4 quizzes with the same Percent and exactly 1 with Optional: true), do NOT change any Percent or Optional values. Output NO_CHANGES_NEEDED.
-- Only suggest changes for real errors: wrong date format, typos in names, missing items, or percentages that clearly do not sum to 100% because of an obvious mistake. Do NOT change Percent or Optional when the first pass already used component_total/N correctly (e.g. 6.667% for "best 3 of 4" with 20% total).
+    CRITICAL — DO NOT "FIX" WHAT IS ALREADY CORRECT:
+    - If the list already has "best N of M" / drop-lowest structure (e.g. 4 quizzes with the same Percent and exactly 1 with Optional: true), do NOT change any Percent or Optional values. Output NO_CHANGES_NEEDED.
+    - Only suggest changes for real errors: wrong date format, typos in names, missing items, or percentages that clearly do not sum to 100% because of an obvious mistake. Do NOT change Percent or Optional when the first pass already used component_total/N correctly (e.g. 6.667% for "best 3 of 4" with 20% total).
 
-Only fix these if they are actually wrong:
-1. **Optional flags**: Change only if the count of Optional: true is wrong for a "best N of M" component (e.g. should be 1 dropped but there are 0 or 2). Do NOT set Optional to false on items that were correctly marked dropped.
-2. **Lab due dates**: Only if lab dates are clearly completion dates instead of due dates.
-3. **Percent**: Only if there is a clear math error (e.g. total not 100%) and it's obvious how to fix it. Do NOT replace correct "component_total ÷ N" percentages (e.g. 6.667%) with "component_total ÷ M" (e.g. 10%).
-4. **Date format**: Only if a date is wrong format; keep REGISTRAR_SCHEDULED and NO_DATE as-is.
-5. **Missing component**: Only if a graded component from the outline is missing (e.g. Participation).
+    Only fix these if they are actually wrong:
+    1. **Optional flags**: Change only if the count of Optional: true is wrong for a "best N of M" component (e.g. should be 1 dropped but there are 0 or 2). Do NOT set Optional to false on items that were correctly marked dropped.
+    2. **Lab due dates**: Only if lab dates are clearly completion dates instead of due dates.
+    3. **Percent**: Only if there is a clear math error (e.g. total not 100%) and it's obvious how to fix it. Do NOT replace correct "component_total ÷ N" percentages (e.g. 6.667%) with "component_total ÷ M" (e.g. 10%).
+    4. **Date format**: Only if a date is wrong format; keep REGISTRAR_SCHEDULED and NO_DATE as-is.
+    5. **Missing component**: Only if a graded component from the outline is missing (e.g. Participation).
 
-Original outline context:
-{outline_text[:500]}...
+    Original outline context:
+    {outline_text[:500]}...
 
-User answers:
-{answers if answers else "None"}
+    User answers:
+    {answers if answers else "None"}
 
-If the items are correct or only trivially wrong, output exactly: NO_CHANGES_NEEDED
+    If the items are correct or only trivially wrong, output exactly: NO_CHANGES_NEEDED
 
-If you must correct real errors, output the corrected lines in this format only:
-Name, Date, P%, EXPLANATION, Optional
-(Optional is true or false. One line per item. No headers.)
+    If you must correct real errors, output the corrected lines in this format only:
+    Name, Date, P%, EXPLANATION, Optional
+    (Optional is true or false. One line per item. No headers.)
 
-"""
+    """
 
     messages = [{"role": "user", "content": recheck_prompt}]
     

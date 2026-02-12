@@ -18,7 +18,7 @@ export default function EventForm({ slotInfo, onCancel, onSave }) {
   return (
     <div className="modal-backdrop">
       <div className="modal" style={{ maxWidth: 400, borderRadius: 16 }}>
-        <h2 style={{ color: '#a259f7', textAlign: 'center' }}>Add New Event</h2>
+        <h2 className="text-gradient" style={{ textAlign: 'center' }}>Add New Event</h2>
         {/* Color picker */}
         <div style={{ display: 'flex', justifyContent: 'center', margin: '12px 0' }}>
           {personalColors.map(color => (
